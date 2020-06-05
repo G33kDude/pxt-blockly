@@ -294,6 +294,14 @@ gulp.task('build-javascript', function() {
 });
 
 /**
+ * This task builds the autohotkey generator.
+ *     ahk_compressed.js
+ */
+gulp.task('build-autohotkey', function() {
+  return buildGenerator('autohotkey', 'AutoHotkey');
+});
+
+/**
  * This task builds the python generator.
  *     python_compressed.js
  */
@@ -335,6 +343,7 @@ gulp.task('build-dart', function() {
  */
 gulp.task('build-generators', gulp.parallel(
   'build-javascript',
+  'build-autohotkey',
   'build-python',
   'build-php',
   'build-lua',

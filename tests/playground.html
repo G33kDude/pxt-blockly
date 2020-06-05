@@ -54,6 +54,16 @@
 <script src="../generators/dart/variables.js"></script>
 <script src="../generators/dart/variables_dynamic.js"></script>
 <script src="../generators/dart/procedures.js"></script>
+<script src="../generators/autohotkey.js"></script>
+<script src="../generators/autohotkey/logic.js"></script>
+<script src="../generators/autohotkey/loops.js"></script>
+<script src="../generators/autohotkey/math.js"></script>
+<script src="../generators/autohotkey/text.js"></script>
+<script src="../generators/autohotkey/lists.js"></script>
+<script src="../generators/autohotkey/colour.js"></script>
+<script src="../generators/autohotkey/variables.js"></script>
+<script src="../generators/autohotkey/variables_dynamic.js"></script>
+<script src="../generators/autohotkey/procedures.js"></script>
 <script src="../msg/messages.js"></script>
 <script src="../blocks/extensions.js"></script>
 <script src="../blocks/logic.js"></script>
@@ -551,6 +561,8 @@ line.blocklyFlyoutLine {
     <input type="button" value="To Lua" onclick="toCode('Lua')">
     &nbsp;
     <input type="button" value="To Dart" onclick="toCode('Dart')">
+    &nbsp;
+    <input type="button" value="To AutoHotkey" onclick="toCode('AutoHotkey')">
     <br>
     <textarea id="importExport" style="width: 26%; height: 12em"
       onchange="taChange();" onkeyup="taChange()"></textarea>

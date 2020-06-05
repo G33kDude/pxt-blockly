@@ -35,6 +35,7 @@
 #
 # This script also generates:
 #   blocks_compressed.js: The compressed Blockly language blocks.
+#   autohotkey_compressed.js: The compressed AutoHotkey generator.
 #   javascript_compressed.js: The compressed JavaScript generator.
 #   python_compressed.js: The compressed Python generator.
 #   php_compressed.js: The compressed PHP generator.
@@ -173,6 +174,7 @@ class Gen_compressed(threading.Thread):
       self.gen_generator("php")
       self.gen_generator("lua")
       self.gen_generator("dart")
+      self.gen_generator("autohotkey")
 
   def gen_core(self):
     target_filename = "blockly_compressed.js"
