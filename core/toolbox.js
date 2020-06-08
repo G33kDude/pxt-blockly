@@ -467,6 +467,9 @@ Blockly.Toolbox.prototype.syncTrees_ = function(treeIn, treeOut, pathToMedia) {
           }
         }
 
+        if (childIn.getAttribute('iconclass'))
+          childOut.iconClass_ = childIn.getAttribute('iconclass');
+
         var styleName = childIn.getAttribute('categorystyle');
         var colour = childIn.getAttribute('colour');
 
