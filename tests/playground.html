@@ -418,7 +418,7 @@ function airstrike(n) {
 function toggleBreakpoints() {
   workspace.options.debugMode = !workspace.options.debugMode;
   var blocks = workspace.getAllBlocks();
-  blocks.forEach(block => {
+  blocks.forEach(function(block){
     if (block.nextConnection && block.previousConnection) {
       block.enableBreakpoint(workspace.options.debugMode);
     }

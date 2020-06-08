@@ -91,9 +91,9 @@ Blockly.pxt.Drawer.prototype.drawCollapsedStack_ = function(row) {
  */
 Blockly.pxt.Drawer.prototype.drawLeft_ = function() {
   Blockly.pxt.Drawer.superClass_.drawLeft_.call(this);
-  var hasCollapsedStack = this.info_.rows.find(function (el) {
+  var hasCollapsedStack = this.info_.rows.filter(function (el) {
     return el.isCollapsedStack;
-  })
+  })[0];
 
   // we lift the pen in drawing the collapsed stack ellipses, so manually
   // reconnect left side
