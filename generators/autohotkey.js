@@ -1,6 +1,7 @@
 /**
  * @license
  * Copyright 2012 Google LLC
+ * Modified 2020 Philip Taylor
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,6 +19,7 @@
 /**
  * @fileoverview Helper functions for generating AutoHotkey for blocks.
  * @author fraser@google.com (Neil Fraser)
+ * @author contact@philipt.net (Philip Taylor)
  */
 'use strict';
 
@@ -33,6 +35,7 @@ goog.require('Blockly.utils.string');
  * @type {!Blockly.Generator}
  */
 Blockly.AutoHotkey = new Blockly.Generator('AutoHotkey');
+Blockly.AutoHotkey.INDENT = '\t';
 
 /**
  * List of illegal variable names.
@@ -42,20 +45,43 @@ Blockly.AutoHotkey = new Blockly.Generator('AutoHotkey');
  * @private
  */
 Blockly.AutoHotkey.addReservedWords(
-    // https://developer.mozilla.org/en-US/docs/Web/AutoHotkey/Reference/Lexical_grammar#Keywords
-    'break,case,catch,class,const,continue,debugger,default,delete,do,else,export,extends,finally,for,function,if,import,in,instanceof,new,return,super,switch,this,throw,try,typeof,var,void,while,with,yield,' +
-    'enum,' +
-    'implements,interface,let,package,private,protected,public,static,' +
-    'await,' +
-    'null,true,false,' +
-    // Magic variable.
-    'arguments,' +
-    // Everything in the current environment (835 items in Chrome, 104 in Node).
-    Object.getOwnPropertyNames(Blockly.utils.global).join(','));
+    'ErrorLevel,True,False,Clipboard,ClipboardAll,A_Space,A_Tab,A_Args' +
+    'A_WorkingDir,A_ScriptDir,A_ScriptName,A_ScriptFullPath,A_ScriptHwnd' +
+    'A_LineNumber,A_LineFile,A_ThisFunc,A_ThisLabel,A_AhkVersion,A_AhkPath' +
+    'A_IsUnicode,A_IsCompiled,A_ExitReason,A_YYYY,A_MM,A_DD,A_MMMM,A_MMM' +
+    'A_DDDD,A_DDD,A_WDay,A_YDay,A_YWeek,A_Hour,A_Min,A_Sec,A_MSec,A_Now' +
+    'A_NowUTC,A_TickCount,A_IsSuspended,A_IsPaused,A_IsCritical,A_BatchLines' +
+    'A_ListLines,A_TitleMatchMode,A_TitleMatchModeSpeed,A_DetectHiddenWindows' +
+    'A_DetectHiddenText,A_AutoTrim,A_StringCaseSense,A_FileEncoding' +
+    'A_FormatInteger,A_FormatFloat,A_SendMode,A_SendLevel,A_StoreCapsLockMode' +
+    'StoreCapslockMode,A_KeyDelay,A_KeyDuration,A_KeyDelayPlay' +
+    'A_KeyDurationPlay,A_WinDelay,A_ControlDelay,A_MouseDelay' +
+    'A_MouseDelayPlay,A_DefaultMouseSpeed,A_CoordModeToolTip,A_CoordModePixel' +
+    'A_CoordModeMouse,A_CoordModeCaret,A_CoordModeMenu,A_RegView,A_IconHidden' +
+    'A_IconTip,A_IconFile,A_IconNumber,A_TimeIdle,A_TimeIdlePhysical' +
+    'A_TimeIdleKeyboard,A_TimeIdleMouse,A_DefaultGui,A_DefaultListView' +
+    'A_DefaultTreeView,A_Gui,A_GuiControl,A_GuiWidth,A_GuiHeight,A_EventInfo' +
+    'A_ThisMenuItem,A_ThisMenu,A_ThisMenuItemPos,A_ThisHotkey,A_PriorHotkey' +
+    'A_PriorKey,A_TimeSinceThisHotkey,A_TimeSincePriorHotkey,A_EndChar' +
+    'ComSpec,A_ComSpec,A_Temp,A_OSType,A_OSVersion,A_Is64bitOS,A_PtrSize' +
+    'A_Language,A_ComputerName,A_UserName,A_WinDir,A_ProgramFiles' +
+    'ProgramFiles,A_AppData,A_AppDataCommon,A_Desktop,A_DesktopCommon' +
+    'A_StartMenu,A_StartMenuCommon,A_Programs,A_ProgramsCommon,A_Startup' +
+    'A_StartupCommon,A_MyDocuments,A_IsAdmin,A_ScreenWidth,A_ScreenHeight' +
+    'Screen,A_ScreenDPI,A_IPAddress1,A_IPAddress2,A_IPAddress3,A_IPAddress4' +
+    'A_Cursor,A_CaretX,A_CaretY,A_LastError,A_Index,A_GuiControlEvent' +
+    'A_GuiEvent,A_GuiX,A_GuiY,A_LoopField,A_LoopFileAttrib,A_LoopFileDir' +
+    'A_LoopFileExt,A_LoopFileFullPath,A_LoopFileLongPath,A_LoopFileName' +
+    'A_LoopFilePath,A_LoopFileShortName,A_LoopFileShortPath,A_LoopFileSize' +
+    'A_LoopFileSizeKB,A_LoopFileSizeMB,A_LoopFileTimeAccessed' +
+    'A_LoopFileTimeCreated,A_LoopFileTimeModified,A_LoopReadLine,A_LoopRegKey' +
+    'A_LoopRegName,A_LoopRegSubKey,A_LoopRegTimeModified,A_LoopRegType,A_MDay' +
+    'A_Mon,A_NumBatchLines,A_Year,each'
+);
 
 /**
  * Order of operation ENUMs.
- * https://developer.mozilla.org/en/AutoHotkey/Reference/Operators/Operator_Precedence
+ * https://developer.mozilla.org/en/JavaScript/Reference/Operators/Operator_Precedence
  */
 Blockly.AutoHotkey.ORDER_ATOMIC = 0;           // 0 "" ...
 Blockly.AutoHotkey.ORDER_NEW = 1.1;            // new
@@ -81,6 +107,7 @@ Blockly.AutoHotkey.ORDER_BITWISE_SHIFT = 7;    // << >> >>>
 Blockly.AutoHotkey.ORDER_RELATIONAL = 8;       // < <= > >=
 Blockly.AutoHotkey.ORDER_IN = 8;               // in
 Blockly.AutoHotkey.ORDER_INSTANCEOF = 8;       // instanceof
+Blockly.AutoHotkey.ORDER_CONCATENATION = 8.5;  // .
 Blockly.AutoHotkey.ORDER_EQUALITY = 9;         // == != === !==
 Blockly.AutoHotkey.ORDER_BITWISE_AND = 10;     // &
 Blockly.AutoHotkey.ORDER_BITWISE_XOR = 11;     // ^
@@ -160,10 +187,13 @@ Blockly.AutoHotkey.init = function(workspace) {
   }
 
   // Declare all of the variables.
-  if (defvars.length) {
-    Blockly.AutoHotkey.definitions_['variables'] =
-        'var ' + defvars.join(', ') + ';';
-  }
+  // if (defvars.length) {
+  //   // Not necessary
+  //   Blockly.AutoHotkey.definitions_['variables'] = '';
+  //   for (var i = 0; i < defvars.length; i++) {
+  //     Blockly.AutoHotkey.definitions_['variables'] += defvars[i] + ' := ""';
+  //   }
+  // }
 };
 
 /**
@@ -181,7 +211,8 @@ Blockly.AutoHotkey.finish = function(code) {
   delete Blockly.AutoHotkey.definitions_;
   delete Blockly.AutoHotkey.functionNames_;
   Blockly.AutoHotkey.variableDB_.reset();
-  return definitions.join('\n\n') + '\n\n\n' + code;
+  return '#NoEnv\nSetBatchLines, -1\n\n' + code +
+    'return\n\n' + definitions.join('\n\n');
 };
 
 /**
@@ -191,7 +222,7 @@ Blockly.AutoHotkey.finish = function(code) {
  * @return {string} Legal line of code.
  */
 Blockly.AutoHotkey.scrubNakedValue = function(line) {
-  return line + ';\n';
+  return '; ' + line + '\n';
 };
 
 /**
@@ -202,12 +233,9 @@ Blockly.AutoHotkey.scrubNakedValue = function(line) {
  * @private
  */
 Blockly.AutoHotkey.quote_ = function(string) {
-  // Can't use goog.string.quote since Google's style guide recommends
-  // JS string literals use single quotes.
-  string = string.replace(/\\/g, '\\\\')
-                 .replace(/\n/g, '\\\n')
-                 .replace(/'/g, '\\\'');
-  return '\'' + string + '\'';
+  string = string.replace(/`/g, '``')
+                 .replace(/"/g, '""');
+  return '"' + string + '"';
 };
 
 /**
@@ -218,10 +246,11 @@ Blockly.AutoHotkey.quote_ = function(string) {
  * @private
  */
 Blockly.AutoHotkey.multiline_quote_ = function(string) {
-  // Can't use goog.string.quote since Google's style guide recommends
-  // JS string literals use single quotes.
-  var lines = string.split(/\n/g).map(Blockly.AutoHotkey.quote_);
-  return lines.join(' + \'\\n\' +\n');
+  // // Can't use goog.string.quote since Google's style guide recommends
+  // // JS string literals use single quotes.
+  // var lines = string.split(/\n/g).map(Blockly.AutoHotkey.quote_);
+  // return lines.join(' + \'\\n\' +\n');
+  return 'There\'s something wrong here! Please contact the site owner.\n';
 };
 
 /**
@@ -243,7 +272,7 @@ Blockly.AutoHotkey.scrub_ = function(block, code, opt_thisOnly) {
     if (comment) {
       comment = Blockly.utils.string.wrap(comment,
           Blockly.AutoHotkey.COMMENT_WRAP - 3);
-      commentCode += Blockly.AutoHotkey.prefixLines(comment + '\n', '// ');
+      commentCode += Blockly.AutoHotkey.prefixLines(comment + '\n', '; ');
     }
     // Collect comments for all value arguments.
     // Don't collect comments for nested statements.
@@ -253,7 +282,7 @@ Blockly.AutoHotkey.scrub_ = function(block, code, opt_thisOnly) {
         if (childBlock) {
           comment = Blockly.AutoHotkey.allNestedComments(childBlock);
           if (comment) {
-            commentCode += Blockly.AutoHotkey.prefixLines(comment, '// ');
+            commentCode += Blockly.AutoHotkey.prefixLines(comment, '; ');
           }
         }
       }
@@ -277,8 +306,8 @@ Blockly.AutoHotkey.getAdjusted = function(block, atId, opt_delta, opt_negate,
     opt_order) {
   var delta = opt_delta || 0;
   var order = opt_order || Blockly.AutoHotkey.ORDER_NONE;
-  if (block.workspace.options.oneBasedIndex) {
-    delta--;
+  if (!block.workspace.options.oneBasedIndex) {
+    delta++;
   }
   var defaultAtIndex = block.workspace.options.oneBasedIndex ? '1' : '0';
   if (delta > 0) {
@@ -326,3 +355,21 @@ Blockly.AutoHotkey.getAdjusted = function(block, atId, opt_delta, opt_negate,
   }
   return at;
 };
+
+Blockly.AutoHotkey.getSort = function() {
+  return Blockly.AutoHotkey.provideFunction_(
+      'Sort',
+      [Blockly.AutoHotkey.FUNCTION_NAME_PLACEHOLDER_ + '(a, lo:="", hi:="")',
+       '{',
+       '\tif (lo == "" || hi == "")',
+       '\t\treturn a, Sort(a := ObjClone(a), a.MinIndex(), a.MaxIndex())',
+       '\tif (lo >= hi)',
+       '\t\treturn',
+       '\tRandom, r, lo, hi',
+       '\tp := a[r], a[r] := a[hi], a[hi] := p, i := j := lo',
+       '\twhile (j < hi)',
+       '\t\t(a[j] < p ? (t := a[j], a[j] := a[i], a[i] := t, ++i) : 0), ++j',
+       '\tt := a[hi], a[hi] := a[i], a[i] := t',
+       '\tSort(a, lo, i - 1), Sort(a, i + 1, hi)',
+       '}']);
+}

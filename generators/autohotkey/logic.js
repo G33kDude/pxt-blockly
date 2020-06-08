@@ -1,6 +1,7 @@
 /**
  * @license
  * Copyright 2012 Google LLC
+ * Modified 2020 Philip Taylor
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,6 +19,7 @@
 /**
  * @fileoverview Generating AutoHotkey for logic blocks.
  * @author q.neutron@gmail.com (Quynh Neutron)
+ * @author contact@philipt.net (Philip Taylor)
  */
 'use strict';
 
@@ -37,15 +39,15 @@ Blockly.AutoHotkey['controls_if'] = function(block) {
   }
   do {
     conditionCode = Blockly.AutoHotkey.valueToCode(block, 'IF' + n,
-        Blockly.AutoHotkey.ORDER_NONE) || 'false';
+        Blockly.AutoHotkey.ORDER_NONE) || 'False';
     branchCode = Blockly.AutoHotkey.statementToCode(block, 'DO' + n);
     if (Blockly.AutoHotkey.STATEMENT_SUFFIX) {
       branchCode = Blockly.AutoHotkey.prefixLines(
           Blockly.AutoHotkey.injectId(Blockly.AutoHotkey.STATEMENT_SUFFIX,
           block), Blockly.AutoHotkey.INDENT) + branchCode;
     }
-    code += (n > 0 ? ' else ' : '') +
-        'if (' + conditionCode + ') {\n' + branchCode + '}';
+    code += (n > 0 ? '\nelse ' : '') +
+        'if (' + conditionCode + ')\n{\n' + branchCode + '}';
     ++n;
   } while (block.getInput('IF' + n));
 
@@ -56,7 +58,7 @@ Blockly.AutoHotkey['controls_if'] = function(block) {
           Blockly.AutoHotkey.injectId(Blockly.AutoHotkey.STATEMENT_SUFFIX,
           block), Blockly.AutoHotkey.INDENT) + branchCode;
     }
-    code += ' else {\n' + branchCode + '}';
+    code += '\nelse\n{\n' + branchCode + '}';
   }
   return code + '\n';
 };
@@ -91,11 +93,11 @@ Blockly.AutoHotkey['logic_operation'] = function(block) {
   var argument1 = Blockly.AutoHotkey.valueToCode(block, 'B', order);
   if (!argument0 && !argument1) {
     // If there are no arguments, then the return value is false.
-    argument0 = 'false';
-    argument1 = 'false';
+    argument0 = 'False';
+    argument1 = 'False';
   } else {
     // Single missing arguments have no effect on the return value.
-    var defaultArgument = (operator == '&&') ? 'true' : 'false';
+    var defaultArgument = (operator == '&&') ? 'True' : 'False';
     if (!argument0) {
       argument0 = defaultArgument;
     }
@@ -111,14 +113,14 @@ Blockly.AutoHotkey['logic_negate'] = function(block) {
   // Negation.
   var order = Blockly.AutoHotkey.ORDER_LOGICAL_NOT;
   var argument0 = Blockly.AutoHotkey.valueToCode(block, 'BOOL', order) ||
-      'true';
+      'True';
   var code = '!' + argument0;
   return [code, order];
 };
 
 Blockly.AutoHotkey['logic_boolean'] = function(block) {
   // Boolean values true and false.
-  var code = (block.getFieldValue('BOOL') == 'TRUE') ? 'true' : 'false';
+  var code = (block.getFieldValue('BOOL') == 'TRUE') ? 'True' : 'False';
   return [code, Blockly.AutoHotkey.ORDER_ATOMIC];
 };
 
@@ -130,11 +132,11 @@ Blockly.AutoHotkey['logic_null'] = function(block) {
 Blockly.AutoHotkey['logic_ternary'] = function(block) {
   // Ternary operator.
   var value_if = Blockly.AutoHotkey.valueToCode(block, 'IF',
-      Blockly.AutoHotkey.ORDER_CONDITIONAL) || 'false';
+      Blockly.AutoHotkey.ORDER_CONDITIONAL) || 'False';
   var value_then = Blockly.AutoHotkey.valueToCode(block, 'THEN',
-      Blockly.AutoHotkey.ORDER_CONDITIONAL) || 'null';
+      Blockly.AutoHotkey.ORDER_CONDITIONAL) || '""';
   var value_else = Blockly.AutoHotkey.valueToCode(block, 'ELSE',
-      Blockly.AutoHotkey.ORDER_CONDITIONAL) || 'null';
+      Blockly.AutoHotkey.ORDER_CONDITIONAL) || '""';
   var code = value_if + ' ? ' + value_then + ' : ' + value_else;
   return [code, Blockly.AutoHotkey.ORDER_CONDITIONAL];
 };

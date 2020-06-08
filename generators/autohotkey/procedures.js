@@ -1,6 +1,7 @@
 /**
  * @license
  * Copyright 2012 Google LLC
+ * Modified 2020 Philip Taylor
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,6 +19,7 @@
 /**
  * @fileoverview Generating AutoHotkey for procedure blocks.
  * @author fraser@google.com (Neil Fraser)
+ * @author contact@philipt.net (Philip Taylor)
  */
 'use strict';
 
@@ -57,14 +59,14 @@ Blockly.AutoHotkey['procedures_defreturn'] = function(block) {
     xfix2 = xfix1;
   }
   if (returnValue) {
-    returnValue = Blockly.AutoHotkey.INDENT + 'return ' + returnValue + ';\n';
+    returnValue = Blockly.AutoHotkey.INDENT + 'return ' + returnValue + '\n';
   }
   var args = [];
   for (var i = 0; i < block.arguments_.length; i++) {
     args[i] = Blockly.AutoHotkey.variableDB_.getName(block.arguments_[i],
         Blockly.VARIABLE_CATEGORY_NAME);
   }
-  var code = 'function ' + funcName + '(' + args.join(', ') + ') {\n' +
+  var code = funcName + '(' + args.join(', ') + ')\n{\n' +
       xfix1 + loopTrap + branch + xfix2 + returnValue + '}';
   code = Blockly.AutoHotkey.scrub_(block, code);
   // Add % so as not to collide with helper functions in definitions list.
@@ -95,14 +97,14 @@ Blockly.AutoHotkey['procedures_callnoreturn'] = function(block) {
   // Generated code is for a function call as a statement is the same as a
   // function call as a value, with the addition of line ending.
   var tuple = Blockly.AutoHotkey['procedures_callreturn'](block);
-  return tuple[0] + ';\n';
+  return tuple[0] + '\n';
 };
 
 Blockly.AutoHotkey['procedures_ifreturn'] = function(block) {
   // Conditionally return value from a procedure.
   var condition = Blockly.AutoHotkey.valueToCode(block, 'CONDITION',
-      Blockly.AutoHotkey.ORDER_NONE) || 'false';
-  var code = 'if (' + condition + ') {\n';
+      Blockly.AutoHotkey.ORDER_NONE) || 'False';
+  var code = 'if (' + condition + ')\n{\n';
   if (Blockly.AutoHotkey.STATEMENT_SUFFIX) {
     // Inject any statement suffix here since the regular one at the end
     // will not get executed if the return is triggered.
@@ -113,9 +115,9 @@ Blockly.AutoHotkey['procedures_ifreturn'] = function(block) {
   if (block.hasReturnValue_) {
     var value = Blockly.AutoHotkey.valueToCode(block, 'VALUE',
         Blockly.AutoHotkey.ORDER_NONE) || 'null';
-    code += Blockly.AutoHotkey.INDENT + 'return ' + value + ';\n';
+    code += Blockly.AutoHotkey.INDENT + 'return ' + value + '\n';
   } else {
-    code += Blockly.AutoHotkey.INDENT + 'return;\n';
+    code += Blockly.AutoHotkey.INDENT + 'return\n';
   }
   code += '}\n';
   return code;

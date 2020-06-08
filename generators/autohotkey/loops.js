@@ -1,6 +1,7 @@
 /**
  * @license
  * Visual Blocks Language
+ * Modified 2020 Philip Taylor
  *
  * Copyright 2012 Google Inc.
  * https://developers.google.com/blockly/
@@ -21,6 +22,7 @@
 /**
  * @fileoverview Generating AutoHotkey for loop blocks.
  * @author fraser@google.com (Neil Fraser)
+ * @author contact@philipt.net (Philip Taylor)
  */
 'use strict';
 
@@ -41,20 +43,7 @@ Blockly.AutoHotkey['controls_repeat_ext'] = function(block) {
   }
   var branch = Blockly.AutoHotkey.statementToCode(block, 'DO');
   branch = Blockly.AutoHotkey.addLoopTrap(branch, block);
-  var code = '';
-  var loopVar = Blockly.AutoHotkey.variableDB_.getDistinctName(
-      'count', Blockly.Variables.NAME_TYPE);
-  var endVar = repeats;
-  if (!repeats.match(/^\w+$/) && !Blockly.isNumber(repeats)) {
-    var endVar = Blockly.AutoHotkey.variableDB_.getDistinctName(
-        'repeat_end', Blockly.Variables.NAME_TYPE);
-    code += 'var ' + endVar + ' = ' + repeats + ';\n';
-  }
-  code += 'for (var ' + loopVar + ' = 0; ' +
-      loopVar + ' < ' + endVar + '; ' +
-      loopVar + '++) {\n' +
-      branch + '}\n';
-  return code;
+  return 'loop, % ' + repeats + '\n{\n' + branch + '}\n';
 };
 
 Blockly.AutoHotkey['controls_repeat'] =
@@ -65,101 +54,91 @@ Blockly.AutoHotkey['controls_whileUntil'] = function(block) {
   var until = block.getFieldValue('MODE') == 'UNTIL';
   var argument0 = Blockly.AutoHotkey.valueToCode(block, 'BOOL',
       until ? Blockly.AutoHotkey.ORDER_LOGICAL_NOT :
-      Blockly.AutoHotkey.ORDER_NONE) || 'false';
+      Blockly.AutoHotkey.ORDER_NONE) || 'False';
   var branch = Blockly.AutoHotkey.statementToCode(block, 'DO');
   branch = Blockly.AutoHotkey.addLoopTrap(branch, block);
   if (until) {
     argument0 = '!' + argument0;
   }
-  return 'while (' + argument0 + ') {\n' + branch + '}\n';
+  return 'while (' + argument0 + ')\n{\n' + branch + '}\n';
 };
 
-Blockly.AutoHotkey['controls_for'] = function(block) {
-  // For loop.
-  var variable0 = Blockly.AutoHotkey.variableDB_.getName(
-      block.getField('VAR').getText(), Blockly.Variables.NAME_TYPE);
-  var argument0 = Blockly.AutoHotkey.valueToCode(block, 'FROM',
-      Blockly.AutoHotkey.ORDER_ASSIGNMENT) || '0';
-  var argument1 = Blockly.AutoHotkey.valueToCode(block, 'TO',
-      Blockly.AutoHotkey.ORDER_ASSIGNMENT) || '0';
-  var increment = Blockly.AutoHotkey.valueToCode(block, 'BY',
-      Blockly.AutoHotkey.ORDER_ASSIGNMENT) || '1';
-  var branch = Blockly.AutoHotkey.statementToCode(block, 'DO');
-  branch = Blockly.AutoHotkey.addLoopTrap(branch, block);
-  var code;
-  if (Blockly.isNumber(argument0) && Blockly.isNumber(argument1) &&
-      Blockly.isNumber(increment)) {
-    // All arguments are simple numbers.
-    var up = parseFloat(argument0) <= parseFloat(argument1);
-    code = 'for (' + variable0 + ' = ' + argument0 + '; ' +
-        variable0 + (up ? ' <= ' : ' >= ') + argument1 + '; ' +
-        variable0;
-    var step = Math.abs(parseFloat(increment));
-    if (step == 1) {
-      code += up ? '++' : '--';
-    } else {
-      code += (up ? ' += ' : ' -= ') + step;
-    }
-    code += ') {\n' + branch + '}\n';
-  } else {
-    code = '';
-    // Cache non-trivial values to variables to prevent repeated look-ups.
-    var startVar = argument0;
-    if (!argument0.match(/^\w+$/) && !Blockly.isNumber(argument0)) {
-      startVar = Blockly.AutoHotkey.variableDB_.getDistinctName(
-          variable0 + '_start', Blockly.Variables.NAME_TYPE);
-      code += 'var ' + startVar + ' = ' + argument0 + ';\n';
-    }
-    var endVar = argument1;
-    if (!argument1.match(/^\w+$/) && !Blockly.isNumber(argument1)) {
-      var endVar = Blockly.AutoHotkey.variableDB_.getDistinctName(
-          variable0 + '_end', Blockly.Variables.NAME_TYPE);
-      code += 'var ' + endVar + ' = ' + argument1 + ';\n';
-    }
-    // Determine loop direction at start, in case one of the bounds
-    // changes during loop execution.
-    var incVar = Blockly.AutoHotkey.variableDB_.getDistinctName(
-        variable0 + '_inc', Blockly.Variables.NAME_TYPE);
-    code += 'var ' + incVar + ' = ';
-    if (Blockly.isNumber(increment)) {
-      code += Math.abs(increment) + ';\n';
-    } else {
-      code += 'Math.abs(' + increment + ');\n';
-    }
-    code += 'if (' + startVar + ' > ' + endVar + ') {\n';
-    code += Blockly.AutoHotkey.INDENT + incVar + ' = -' + incVar + ';\n';
-    code += '}\n';
-    code += 'for (' + variable0 + ' = ' + startVar + '; ' +
-        incVar + ' >= 0 ? ' +
-        variable0 + ' <= ' + endVar + ' : ' +
-        variable0 + ' >= ' + endVar + '; ' +
-        variable0 + ' += ' + incVar + ') {\n' +
-        branch + '}\n';
-  }
-  return code;
+Blockly.AutoHotkey['controls_for'] = function (block) {
+  // // For loop.
+  // var variable0 = Blockly.AutoHotkey.variableDB_.getName(
+  //   block.getField('VAR').getText(), Blockly.Variables.NAME_TYPE);
+  // var argument0 = Blockly.AutoHotkey.valueToCode(block, 'FROM',
+  //   Blockly.AutoHotkey.ORDER_ASSIGNMENT) || '0';
+  // var argument1 = Blockly.AutoHotkey.valueToCode(block, 'TO',
+  //   Blockly.AutoHotkey.ORDER_ASSIGNMENT) || '0';
+  // var increment = Blockly.AutoHotkey.valueToCode(block, 'BY',
+  //   Blockly.AutoHotkey.ORDER_ASSIGNMENT) || '1';
+  // var branch = Blockly.AutoHotkey.statementToCode(block, 'DO');
+  // branch = Blockly.AutoHotkey.addLoopTrap(branch, block);
+  // var code;
+  // if (Blockly.isNumber(argument0) && Blockly.isNumber(argument1) &&
+  //   Blockly.isNumber(increment)) {
+  //   // All arguments are simple numbers.
+  //   var up = parseFloat(argument0) <= parseFloat(argument1);
+  //   code = 'for (' + variable0 + ' = ' + argument0 + '; ' +
+  //     variable0 + (up ? ' <= ' : ' >= ') + argument1 + '; ' +
+  //     variable0;
+  //   var step = Math.abs(parseFloat(increment));
+  //   if (step == 1) {
+  //     code += up ? '++' : '--';
+  //   } else {
+  //     code += (up ? ' += ' : ' -= ') + step;
+  //   }
+  //   code += ') {\n' + branch + '}\n';
+  // } else {
+  //   code = '';
+  //   // Cache non-trivial values to variables to prevent repeated look-ups.
+  //   var startVar = argument0;
+  //   if (!argument0.match(/^\w+$/) && !Blockly.isNumber(argument0)) {
+  //     startVar = Blockly.AutoHotkey.variableDB_.getDistinctName(
+  //       variable0 + '_start', Blockly.Variables.NAME_TYPE);
+  //     code += 'var ' + startVar + ' = ' + argument0 + ';\n';
+  //   }
+  //   var endVar = argument1;
+  //   if (!argument1.match(/^\w+$/) && !Blockly.isNumber(argument1)) {
+  //     var endVar = Blockly.AutoHotkey.variableDB_.getDistinctName(
+  //       variable0 + '_end', Blockly.Variables.NAME_TYPE);
+  //     code += 'var ' + endVar + ' = ' + argument1 + ';\n';
+  //   }
+  //   // Determine loop direction at start, in case one of the bounds
+  //   // changes during loop execution.
+  //   var incVar = Blockly.AutoHotkey.variableDB_.getDistinctName(
+  //     variable0 + '_inc', Blockly.Variables.NAME_TYPE);
+  //   code += 'var ' + incVar + ' = ';
+  //   if (Blockly.isNumber(increment)) {
+  //     code += Math.abs(increment) + ';\n';
+  //   } else {
+  //     code += 'Math.abs(' + increment + ');\n';
+  //   }
+  //   code += 'if (' + startVar + ' > ' + endVar + ') {\n';
+  //   code += Blockly.AutoHotkey.INDENT + incVar + ' = -' + incVar + ';\n';
+  //   code += '}\n';
+  //   code += 'for (' + variable0 + ' = ' + startVar + '; ' +
+  //     incVar + ' >= 0 ? ' +
+  //     variable0 + ' <= ' + endVar + ' : ' +
+  //     variable0 + ' >= ' + endVar + '; ' +
+  //     variable0 + ' += ' + incVar + ') {\n' +
+  //     branch + '}\n';
+  // }
+  // return code;
+  return '; The count with from to by loop is not implemented\n';
 };
 
 Blockly.AutoHotkey['controls_forEach'] = function(block) {
   // For each loop.
-  var variable0 = Blockly.AutoHotkey.variableDB_.getName(
-      block.getField('VAR').getText(), Blockly.Variables.NAME_TYPE);
+  var variable0 = Blockly.AutoHotkey.valueToCode(block, 'VAR',
+      Blockly.AutoHotkey.ORDER_ATOMIC);
   var argument0 = Blockly.AutoHotkey.valueToCode(block, 'LIST',
       Blockly.AutoHotkey.ORDER_ASSIGNMENT) || '[]';
   var branch = Blockly.AutoHotkey.statementToCode(block, 'DO');
   branch = Blockly.AutoHotkey.addLoopTrap(branch, block);
-  var code = '';
-  // Cache non-trivial values to variables to prevent repeated look-ups.
-  var listVar = argument0;
-  if (!argument0.match(/^\w+$/)) {
-    listVar = Blockly.AutoHotkey.variableDB_.getDistinctName(
-        variable0 + '_list', Blockly.Variables.NAME_TYPE);
-    code += 'var ' + listVar + ' = ' + argument0 + ';\n';
-  }
-  var indexVar = Blockly.AutoHotkey.variableDB_.getDistinctName(
-      variable0 + '_index', Blockly.Variables.NAME_TYPE);
-  branch = Blockly.AutoHotkey.INDENT + variable0 + ' = ' +
-      listVar + '[' + indexVar + '];\n' + branch;
-  code += 'for (var ' + indexVar + ' in ' + listVar + ') {\n' + branch + '}\n';
+  var code = 'for each, ' + variable0 + ' in ' + argument0 + '\n{\n' + branch
+      + '}\n';
   return code;
 };
 
@@ -190,9 +169,9 @@ Blockly.AutoHotkey['controls_flow_statements'] = function(block) {
   }
   switch (block.getFieldValue('FLOW')) {
     case 'BREAK':
-      return xfix + 'break;\n';
+      return xfix + 'break\n';
     case 'CONTINUE':
-      return xfix + 'continue;\n';
+      return xfix + 'continue\n';
   }
   throw Error('Unknown flow statement.');
 };

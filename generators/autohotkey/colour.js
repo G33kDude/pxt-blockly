@@ -1,6 +1,7 @@
 /**
  * @license
  * Copyright 2012 Google LLC
+ * Modified 2020 Philip Taylor
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,6 +19,7 @@
 /**
  * @fileoverview Generating AutoHotkey for colour blocks.
  * @author fraser@google.com (Neil Fraser)
+ * @author contact@philipt.net (Philip Taylor)
  */
 'use strict';
 
@@ -28,17 +30,18 @@ goog.require('Blockly.AutoHotkey');
 
 Blockly.AutoHotkey['colour_picker'] = function(block) {
   // Colour picker.
-  var code = Blockly.AutoHotkey.quote_(block.getFieldValue('COLOUR'));
+  var code = block.getFieldValue('COLOUR').replace('#', '0x');
   return [code, Blockly.AutoHotkey.ORDER_ATOMIC];
 };
 
 Blockly.AutoHotkey['colour_random'] = function(block) {
   // Generate a random colour.
   var functionName = Blockly.AutoHotkey.provideFunction_(
-      'colourRandom',
-      ['function ' + Blockly.AutoHotkey.FUNCTION_NAME_PLACEHOLDER_ + '() {',
-        '  var num = Math.floor(Math.random() * Math.pow(2, 24));',
-        '  return \'#\' + (\'00000\' + num.toString(16)).substr(-6);',
+      'RandomColor',
+      [Blockly.AutoHotkey.FUNCTION_NAME_PLACEHOLDER_ + '()',
+        '{',
+        '\tRandom, rand, 0x000000, 0xFFFFFF',
+        '\treturn rand',
         '}']);
   var code = functionName + '()';
   return [code, Blockly.AutoHotkey.ORDER_FUNCTION_CALL];
@@ -53,16 +56,13 @@ Blockly.AutoHotkey['colour_rgb'] = function(block) {
   var blue = Blockly.AutoHotkey.valueToCode(block, 'BLUE',
       Blockly.AutoHotkey.ORDER_COMMA) || 0;
   var functionName = Blockly.AutoHotkey.provideFunction_(
-      'colourRgb',
-      ['function ' + Blockly.AutoHotkey.FUNCTION_NAME_PLACEHOLDER_ +
-          '(r, g, b) {',
-       '  r = Math.max(Math.min(Number(r), 100), 0) * 2.55;',
-       '  g = Math.max(Math.min(Number(g), 100), 0) * 2.55;',
-       '  b = Math.max(Math.min(Number(b), 100), 0) * 2.55;',
-       '  r = (\'0\' + (Math.round(r) || 0).toString(16)).slice(-2);',
-       '  g = (\'0\' + (Math.round(g) || 0).toString(16)).slice(-2);',
-       '  b = (\'0\' + (Math.round(b) || 0).toString(16)).slice(-2);',
-       '  return \'#\' + r + g + b;',
+      'ColorFromRGB',
+      [Blockly.AutoHotkey.FUNCTION_NAME_PLACEHOLDER_ + '(r, g, b)',
+       '{',
+       '  return Format("0x{:02x}{:02x}{:02x}"',
+       '    , Max(Min(r*2.55, 255), 0)',
+       '    , Max(Min(g*2.55, 255), 0)',
+       '    , Max(Min(b*2.55, 255), 0))',
        '}']);
   var code = functionName + '(' + red + ', ' + green + ', ' + blue + ')';
   return [code, Blockly.AutoHotkey.ORDER_FUNCTION_CALL];
@@ -71,29 +71,22 @@ Blockly.AutoHotkey['colour_rgb'] = function(block) {
 Blockly.AutoHotkey['colour_blend'] = function(block) {
   // Blend two colours together.
   var c1 = Blockly.AutoHotkey.valueToCode(block, 'COLOUR1',
-      Blockly.AutoHotkey.ORDER_COMMA) || '\'#000000\'';
+      Blockly.AutoHotkey.ORDER_COMMA) || '000000';
   var c2 = Blockly.AutoHotkey.valueToCode(block, 'COLOUR2',
-      Blockly.AutoHotkey.ORDER_COMMA) || '\'#000000\'';
+      Blockly.AutoHotkey.ORDER_COMMA) || '000000';
   var ratio = Blockly.AutoHotkey.valueToCode(block, 'RATIO',
       Blockly.AutoHotkey.ORDER_COMMA) || 0.5;
   var functionName = Blockly.AutoHotkey.provideFunction_(
-      'colourBlend',
-      ['function ' + Blockly.AutoHotkey.FUNCTION_NAME_PLACEHOLDER_ +
-          '(c1, c2, ratio) {',
-       '  ratio = Math.max(Math.min(Number(ratio), 1), 0);',
-       '  var r1 = parseInt(c1.substring(1, 3), 16);',
-       '  var g1 = parseInt(c1.substring(3, 5), 16);',
-       '  var b1 = parseInt(c1.substring(5, 7), 16);',
-       '  var r2 = parseInt(c2.substring(1, 3), 16);',
-       '  var g2 = parseInt(c2.substring(3, 5), 16);',
-       '  var b2 = parseInt(c2.substring(5, 7), 16);',
-       '  var r = Math.round(r1 * (1 - ratio) + r2 * ratio);',
-       '  var g = Math.round(g1 * (1 - ratio) + g2 * ratio);',
-       '  var b = Math.round(b1 * (1 - ratio) + b2 * ratio);',
-       '  r = (\'0\' + (r || 0).toString(16)).slice(-2);',
-       '  g = (\'0\' + (g || 0).toString(16)).slice(-2);',
-       '  b = (\'0\' + (b || 0).toString(16)).slice(-2);',
-       '  return \'#\' + r + g + b;',
+      'BlendColors',
+      [Blockly.AutoHotkey.FUNCTION_NAME_PLACEHOLDER_ + '(c1, c2, ratio)',
+       '{',
+       '\tratio := Max(Min(ratio, 1), 0)',
+       '\tr1 := (c1>>16) & 0xFF, g1 := (c1>>8)&0xFF, b1 := c1&0xFF',
+       '\tr2 := (c2>>16) & 0xFF, g2 := (c2>>8)&0xFF, b2 := c2&0xFF',
+       '\tr := Round(r1 * (1 - ratio) + r2 * ratio)',
+       '\tg := Round(g1 * (1 - ratio) + g2 * ratio)',
+       '\tb := Round(b1 * (1 - ratio) + b2 * ratio)',
+       '\treturn (r&0xFF)<<16 | (g&0xFF)<<8 | (b&0xFF)',
        '}']);
   var code = functionName + '(' + c1 + ', ' + c2 + ', ' + ratio + ')';
   return [code, Blockly.AutoHotkey.ORDER_FUNCTION_CALL];

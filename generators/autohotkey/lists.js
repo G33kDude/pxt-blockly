@@ -1,6 +1,7 @@
 /**
  * @license
  * Copyright 2012 Google LLC
+ * Modified 2020 Philip Taylor
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,6 +19,7 @@
 /**
  * @fileoverview Generating AutoHotkey for list blocks.
  * @author fraser@google.com (Neil Fraser)
+ * @author contact@philipt.net (Philip Taylor)
  */
 'use strict';
 
@@ -36,7 +38,7 @@ Blockly.AutoHotkey['lists_create_with'] = function(block) {
   var elements = new Array(block.itemCount_);
   for (var i = 0; i < block.itemCount_; i++) {
     elements[i] = Blockly.AutoHotkey.valueToCode(block, 'ADD' + i,
-        Blockly.AutoHotkey.ORDER_COMMA) || 'null';
+        Blockly.AutoHotkey.ORDER_COMMA) || '""';
   }
   var code = '[' + elements.join(', ') + ']';
   return [code, Blockly.AutoHotkey.ORDER_ATOMIC];
@@ -45,17 +47,16 @@ Blockly.AutoHotkey['lists_create_with'] = function(block) {
 Blockly.AutoHotkey['lists_repeat'] = function(block) {
   // Create a list with one element repeated.
   var functionName = Blockly.AutoHotkey.provideFunction_(
-      'listsRepeat',
-      ['function ' + Blockly.AutoHotkey.FUNCTION_NAME_PLACEHOLDER_ +
-          '(value, n) {',
-       '  var array = [];',
-       '  for (var i = 0; i < n; i++) {',
-       '    array[i] = value;',
-       '  }',
-       '  return array;',
+      'ArrayRepeat',
+      [Blockly.AutoHotkey.FUNCTION_NAME_PLACEHOLDER_ + '(value, n)',
+       '{',
+       '\tarray := []',
+       '\tloop, % n',
+       '\t\tarray.Push(value)',
+       '\treturn array',
        '}']);
   var element = Blockly.AutoHotkey.valueToCode(block, 'ITEM',
-      Blockly.AutoHotkey.ORDER_COMMA) || 'null';
+      Blockly.AutoHotkey.ORDER_COMMA) || '""';
   var repeatCount = Blockly.AutoHotkey.valueToCode(block, 'NUM',
       Blockly.AutoHotkey.ORDER_COMMA) || '0';
   var code = functionName + '(' + element + ', ' + repeatCount + ')';
@@ -66,27 +67,42 @@ Blockly.AutoHotkey['lists_length'] = function(block) {
   // String or array length.
   var list = Blockly.AutoHotkey.valueToCode(block, 'VALUE',
       Blockly.AutoHotkey.ORDER_MEMBER) || '[]';
-  return [list + '.length', Blockly.AutoHotkey.ORDER_MEMBER];
+  return [list + '.Length()', Blockly.AutoHotkey.ORDER_MEMBER];
 };
 
 Blockly.AutoHotkey['lists_isEmpty'] = function(block) {
   // Is the string null or array empty?
   var list = Blockly.AutoHotkey.valueToCode(block, 'VALUE',
       Blockly.AutoHotkey.ORDER_MEMBER) || '[]';
-  return ['!' + list + '.length', Blockly.AutoHotkey.ORDER_LOGICAL_NOT];
+  return ['!' + list + '.Length()', Blockly.AutoHotkey.ORDER_LOGICAL_NOT];
 };
 
 Blockly.AutoHotkey['lists_indexOf'] = function(block) {
   // Find an item in the list.
-  var operator = block.getFieldValue('END') == 'FIRST' ?
-      'indexOf' : 'lastIndexOf';
+  var functionName = Blockly.AutoHotkey.provideFunction_(
+      'IndexOf',
+      [Blockly.AutoHotkey.FUNCTION_NAME_PLACEHOLDER_ +
+          '(array, value, first:=True)',
+       '{',
+       '\tfor k, v in array',
+       '\t{',
+       '\t\tif (v == value)',
+       '\t\t{',
+       '\t\t\tif first',
+       '\t\t\t\treturn k',
+       '\t\t\tfound := k',
+       '\t\t}',
+       '\t}',
+       '\treturn found',
+       '}']);
+  var first = block.getFieldValue('END') == 'FIRST' ? '' : ', False';
   var item = Blockly.AutoHotkey.valueToCode(block, 'FIND',
-      Blockly.AutoHotkey.ORDER_NONE) || '\'\'';
+      Blockly.AutoHotkey.ORDER_NONE) || '""';
   var list = Blockly.AutoHotkey.valueToCode(block, 'VALUE',
       Blockly.AutoHotkey.ORDER_MEMBER) || '[]';
-  var code = list + '.' + operator + '(' + item + ')';
-  if (block.workspace.options.oneBasedIndex) {
-    return [code + ' + 1', Blockly.AutoHotkey.ORDER_ADDITION];
+  var code = functionName + '(' + list + ', ' + item + first + ')';
+  if (!block.workspace.options.oneBasedIndex) {
+    return [code + ' - 1', Blockly.AutoHotkey.ORDER_ADDITION];
   }
   return [code, Blockly.AutoHotkey.ORDER_FUNCTION_CALL];
 };
@@ -103,24 +119,30 @@ Blockly.AutoHotkey['lists_getIndex'] = function(block) {
   switch (where) {
     case ('FIRST'):
       if (mode == 'GET') {
-        var code = list + '[0]';
+        var code = list + '[1]';
         return [code, Blockly.AutoHotkey.ORDER_MEMBER];
       } else if (mode == 'GET_REMOVE') {
-        var code = list + '.shift()';
+        var code = list + '.RemoveAt(1)';
         return [code, Blockly.AutoHotkey.ORDER_MEMBER];
       } else if (mode == 'REMOVE') {
-        return list + '.shift();\n';
+        return list + '.RemoteAt(1)\n';
       }
       break;
     case ('LAST'):
       if (mode == 'GET') {
-        var code = list + '.slice(-1)[0]';
+        var functionName = Blockly.AutoHotkey.provideFunction_(
+            'Peek',
+            [Blockly.AutoHotkey.FUNCTION_NAME_PLACEHOLDER_ + '(array)',
+             '{',
+             '\treturn array[array.length()]',
+             '}']);
+        var code = functionName + '(' + list + ')';
         return [code, Blockly.AutoHotkey.ORDER_MEMBER];
       } else if (mode == 'GET_REMOVE') {
-        var code = list + '.pop()';
+        var code = list + '.Pop()';
         return [code, Blockly.AutoHotkey.ORDER_MEMBER];
       } else if (mode == 'REMOVE') {
-        return list + '.pop();\n';
+        return list + '.Pop()\n';
       }
       break;
     case ('FROM_START'):
@@ -129,41 +151,56 @@ Blockly.AutoHotkey['lists_getIndex'] = function(block) {
         var code = list + '[' + at + ']';
         return [code, Blockly.AutoHotkey.ORDER_MEMBER];
       } else if (mode == 'GET_REMOVE') {
-        var code = list + '.splice(' + at + ', 1)[0]';
+        var code = list + '.RemoveAt(' + at + ')';
         return [code, Blockly.AutoHotkey.ORDER_FUNCTION_CALL];
       } else if (mode == 'REMOVE') {
-        return list + '.splice(' + at + ', 1);\n';
+        return list + '.RemoveAt(' + at + ')\n';
       }
       break;
     case ('FROM_END'):
       var at = Blockly.AutoHotkey.getAdjusted(block, 'AT', 1, true);
       if (mode == 'GET') {
-        var code = list + '.slice(' + at + ')[0]';
+        var functionName = Blockly.AutoHotkey.provideFunction_(
+            'FromEnd',
+            [Blockly.AutoHotkey.FUNCTION_NAME_PLACEHOLDER_ + '(array, n)',
+             '{',
+             '\treturn array[array.length()-n]',
+             '}']);
+        var code = functionName + '(' + list + ', ' + at + ')';
         return [code, Blockly.AutoHotkey.ORDER_FUNCTION_CALL];
       } else if (mode == 'GET_REMOVE') {
-        var code = list + '.splice(' + at + ', 1)[0]';
+        var functionName = Blockly.AutoHotkey.provideFunction_(
+            'RemoveFromEnd',
+            [Blockly.AutoHotkey.FUNCTION_NAME_PLACEHOLDER_ + '(array, n)',
+             '{',
+             '\treturn array.RemoveAt(array.Length() - n)',
+             '}']);
+        var code = functionName + '(' + list + ', ' + at + ')';
         return [code, Blockly.AutoHotkey.ORDER_FUNCTION_CALL];
       } else if (mode == 'REMOVE') {
-        return list + '.splice(' + at + ', 1);';
+        var functionName = Blockly.AutoHotkey.provideFunction_(
+            'RemoveFromEnd',
+            [Blockly.AutoHotkey.FUNCTION_NAME_PLACEHOLDER_ + '(array, n)',
+             '{',
+             '\treturn array.RemoveAt(array.Length() - n)',
+             '}']);
+        return functionName + '(' + list + ', ' + at + ')\n';
       }
       break;
     case ('RANDOM'):
       var functionName = Blockly.AutoHotkey.provideFunction_(
-          'listsGetRandomItem',
-          ['function ' + Blockly.AutoHotkey.FUNCTION_NAME_PLACEHOLDER_ +
-              '(list, remove) {',
-           '  var x = Math.floor(Math.random() * list.length);',
-           '  if (remove) {',
-           '    return list.splice(x, 1)[0];',
-           '  } else {',
-           '    return list[x];',
-           '  }',
+          'RandomItem',
+          [Blockly.AutoHotkey.FUNCTION_NAME_PLACEHOLDER_ +
+              '(array, remove:=False)',
+           '{',
+           '\tRandom, i, array.MinIndex(), array.MaxIndex()',
+           '\treturn remove ? array.RemoveAt(i) : array[i]',
            '}']);
       code = functionName + '(' + list + ', ' + (mode != 'GET') + ')';
       if (mode == 'GET' || mode == 'GET_REMOVE') {
         return [code, Blockly.AutoHotkey.ORDER_FUNCTION_CALL];
       } else if (mode == 'REMOVE') {
-        return code + ';\n';
+        return code + '\n';
       }
       break;
   }
@@ -178,7 +215,7 @@ Blockly.AutoHotkey['lists_setIndex'] = function(block) {
   var mode = block.getFieldValue('MODE') || 'GET';
   var where = block.getFieldValue('WHERE') || 'FROM_START';
   var value = Blockly.AutoHotkey.valueToCode(block, 'TO',
-      Blockly.AutoHotkey.ORDER_ASSIGNMENT) || 'null';
+      Blockly.AutoHotkey.ORDER_ASSIGNMENT) || '""';
   // Cache non-trivial values to variables to prevent repeated look-ups.
   // Closure, which accesses and modifies 'list'.
   function cacheList() {
@@ -187,59 +224,60 @@ Blockly.AutoHotkey['lists_setIndex'] = function(block) {
     }
     var listVar = Blockly.AutoHotkey.variableDB_.getDistinctName(
         'tmpList', Blockly.VARIABLE_CATEGORY_NAME);
-    var code = 'var ' + listVar + ' = ' + list + ';\n';
+    var code = listVar + ' := ' + list + '\n';
     list = listVar;
     return code;
   }
   switch (where) {
     case ('FIRST'):
       if (mode == 'SET') {
-        return list + '[0] = ' + value + ';\n';
+        return list + '[1] := ' + value + '\n';
       } else if (mode == 'INSERT') {
-        return list + '.unshift(' + value + ');\n';
+        return list + '.InsertAt(1, ' + value + ')\n';
       }
       break;
     case ('LAST'):
       if (mode == 'SET') {
         var code = cacheList();
-        code += list + '[' + list + '.length - 1] = ' + value + ';\n';
+        code += list + '[' + list + '.Length()] := ' + value + '\n';
         return code;
       } else if (mode == 'INSERT') {
-        return list + '.push(' + value + ');\n';
+        return list + '.Push(' + value + ')\n';
       }
       break;
     case ('FROM_START'):
       var at = Blockly.AutoHotkey.getAdjusted(block, 'AT');
       if (mode == 'SET') {
-        return list + '[' + at + '] = ' + value + ';\n';
+        return list + '[' + at + '] := ' + value + '\n';
       } else if (mode == 'INSERT') {
-        return list + '.splice(' + at + ', 0, ' + value + ');\n';
+        return list + '.InsertAt(' + at + ', ' + value + ')\n';
       }
       break;
     case ('FROM_END'):
       var at = Blockly.AutoHotkey.getAdjusted(block, 'AT', 1, false,
-          Blockly.AutoHotkey.ORDER_SUBTRACTION);
+        Blockly.AutoHotkey.ORDER_SUBTRACTION);
       var code = cacheList();
       if (mode == 'SET') {
-        code += list + '[' + list + '.length - ' + at + '] = ' + value + ';\n';
+        code += list + '[' + list + '.Length() - ' + at + '] := ' + value +
+          '\n';
         return code;
       } else if (mode == 'INSERT') {
-        code += list + '.splice(' + list + '.length - ' + at + ', 0, ' + value +
-            ');\n';
+        code += list + '.InsertAt(' + list + '.Length() - ' + at + ', ' +
+          value + ')\n';
         return code;
       }
       break;
     case ('RANDOM'):
       var code = cacheList();
       var xVar = Blockly.AutoHotkey.variableDB_.getDistinctName(
-          'tmpX', Blockly.VARIABLE_CATEGORY_NAME);
-      code += 'var ' + xVar + ' = Math.floor(Math.random() * ' + list +
-          '.length);\n';
+          'Rand', Blockly.VARIABLE_CATEGORY_NAME);
+      code += 'Random, ' + xVar + ', ' + list + '.MinIndex(), ' + list +
+          '.MaxIndex()\n';
       if (mode == 'SET') {
-        code += list + '[' + xVar + '] = ' + value + ';\n';
+        code += list + '[' + xVar + '] := ' + value + '\n';
         return code;
       } else if (mode == 'INSERT') {
-        code += list + '.splice(' + xVar + ', 0, ' + value + ');\n';
+        code += list + '.InsertAt(' + xVar + ', ' + value + ')\n';
         return code;
       }
       break;
@@ -255,28 +293,40 @@ Blockly.AutoHotkey['lists_setIndex'] = function(block) {
  * @return {string|undefined} Index expression.
  * @private
  */
-Blockly.AutoHotkey.lists.getIndex_ = function(listName, where, opt_at) {
+Blockly.AutoHotkey.lists.getIndex_ = function (listName, where, opt_at) {
   if (where == 'FIRST') {
-    return '0';
+    return '1';
   } else if (where == 'FROM_END') {
-    return listName + '.length - 1 - ' + opt_at;
+    return listName + '.Length() - ' + opt_at;
   } else if (where == 'LAST') {
-    return listName + '.length - 1';
+    return listName + '.Length()';
   } else {
     return opt_at;
   }
 };
 
-Blockly.AutoHotkey['lists_getSublist'] = function(block) {
+Blockly.AutoHotkey['lists_getSublist'] = function (block) {
   // Get sublist.
   var list = Blockly.AutoHotkey.valueToCode(block, 'LIST',
       Blockly.AutoHotkey.ORDER_MEMBER) || '[]';
   var where1 = block.getFieldValue('WHERE1');
   var where2 = block.getFieldValue('WHERE2');
   if (where1 == 'FIRST' && where2 == 'LAST') {
-    var code = list + '.slice(0)';
-  } else if (list.match(/^\w+$/) ||
-      (where1 != 'FROM_END' && where2 == 'FROM_START')) {
+    var code = list + '.Clone()';
+    return [code, Blockly.AutoHotkey.ORDER_FUNCTION_CALL];
+  }
+  // Define the slice helper function
+  var functionName = Blockly.AutoHotkey.provideFunction_(
+      'Slice',
+      [Blockly.AutoHotkey.FUNCTION_NAME_PLACEHOLDER_ + '(array, start, end)',
+       '{',
+       '\tresult := []',
+       '\tloop, % end - start + 1',
+       '\t\tresult[A_Index] := array[start + A_Index - 1]',
+       '\treturn result',
+       '}']);
+  if (list.match(/^\w+$/) ||
+    (where1 != 'FROM_END' && where2 == 'FROM_START')) {
     // If the list is a variable or doesn't require a call for length, don't
     // generate a helper function.
     switch (where1) {
@@ -284,9 +334,9 @@ Blockly.AutoHotkey['lists_getSublist'] = function(block) {
         var at1 = Blockly.AutoHotkey.getAdjusted(block, 'AT1');
         break;
       case 'FROM_END':
-        var at1 = Blockly.AutoHotkey.getAdjusted(block, 'AT1', 1, false,
+        var at1 = Blockly.AutoHotkey.getAdjusted(block, 'AT1', 0, false,
             Blockly.AutoHotkey.ORDER_SUBTRACTION);
-        at1 = list + '.length - ' + at1;
+        at1 = list + '.Length() - ' + at1;
         break;
       case 'FIRST':
         var at1 = '0';
@@ -296,20 +346,20 @@ Blockly.AutoHotkey['lists_getSublist'] = function(block) {
     }
     switch (where2) {
       case 'FROM_START':
-        var at2 = Blockly.AutoHotkey.getAdjusted(block, 'AT2', 1);
+        var at2 = Blockly.AutoHotkey.getAdjusted(block, 'AT2', 0);
         break;
       case 'FROM_END':
         var at2 = Blockly.AutoHotkey.getAdjusted(block, 'AT2', 0, false,
             Blockly.AutoHotkey.ORDER_SUBTRACTION);
-        at2 = list + '.length - ' + at2;
+        at2 = list + '.Length() - ' + at2;
         break;
       case 'LAST':
-        var at2 = list + '.length';
+        var at2 = list + '.Length()';
         break;
       default:
         throw Error('Unhandled option (lists_getSublist).');
     }
-    code = list + '.slice(' + at1 + ', ' + at2 + ')';
+    code = 'Slice(' + list + ', ' + at1 + ', ' + at2 + ')';
   } else {
     var at1 = Blockly.AutoHotkey.getAdjusted(block, 'AT1');
     var at2 = Blockly.AutoHotkey.getAdjusted(block, 'AT2');
@@ -317,17 +367,18 @@ Blockly.AutoHotkey['lists_getSublist'] = function(block) {
     var wherePascalCase = {'FIRST': 'First', 'LAST': 'Last',
         'FROM_START': 'FromStart', 'FROM_END': 'FromEnd'};
     var functionName = Blockly.AutoHotkey.provideFunction_(
-        'subsequence' + wherePascalCase[where1] + wherePascalCase[where2],
-        ['function ' + Blockly.AutoHotkey.FUNCTION_NAME_PLACEHOLDER_ +
-            '(sequence' +
+        'SubArray' + wherePascalCase[where1] + 'To' + wherePascalCase[where2],
+        [Blockly.AutoHotkey.FUNCTION_NAME_PLACEHOLDER_ +
+            '(array' +
             // The value for 'FROM_END' and'FROM_START' depends on `at` so
             // we add it as a parameter.
             ((where1 == 'FROM_END' || where1 == 'FROM_START') ? ', at1' : '') +
             ((where2 == 'FROM_END' || where2 == 'FROM_START') ? ', at2' : '') +
-            ') {',
-          '  var start = ' + getIndex_('sequence', where1, 'at1') + ';',
-          '  var end = ' + getIndex_('sequence', where2, 'at2') + ' + 1;',
-          '  return sequence.slice(start, end);',
+            ')',
+          '{',
+          '  start := ' + getIndex_('array', where1, 'at1'),
+          '  end := ' + getIndex_('array', where2, 'at2') + ' + 1',
+          '  return Slice(array, start, end)',
           '}']);
     var code = functionName + '(' + list +
         // The value for 'FROM_END' and 'FROM_START' depends on `at` so we
@@ -343,26 +394,9 @@ Blockly.AutoHotkey['lists_sort'] = function(block) {
   // Block for sorting a list.
   var list = Blockly.AutoHotkey.valueToCode(block, 'LIST',
       Blockly.AutoHotkey.ORDER_FUNCTION_CALL) || '[]';
-  var direction = block.getFieldValue('DIRECTION') === '1' ? 1 : -1;
-  var type = block.getFieldValue('TYPE');
-  var getCompareFunctionName = Blockly.AutoHotkey.provideFunction_(
-      'listsGetSortCompare',
-      ['function ' + Blockly.AutoHotkey.FUNCTION_NAME_PLACEHOLDER_ +
-          '(type, direction) {',
-       '  var compareFuncs = {',
-       '    "NUMERIC": function(a, b) {',
-       '        return Number(a) - Number(b); },',
-       '    "TEXT": function(a, b) {',
-       '        return a.toString() > b.toString() ? 1 : -1; },',
-       '    "IGNORE_CASE": function(a, b) {',
-       '        return a.toString().toLowerCase() > ' +
-          'b.toString().toLowerCase() ? 1 : -1; },',
-       '  };',
-       '  var compare = compareFuncs[type];',
-       '  return function(a, b) { return compare(a, b) * direction; }',
-       '}']);
-  return [list + '.slice().sort(' +
-      getCompareFunctionName + '("' + type + '", ' + direction + '))',
+  var reverse = block.getFieldValue('DIRECTION') === '-1';
+  var functionName = Blockly.AutoHotkey.getSort();
+  return [functionName + '(' + list + (reverse ? ', True' : '') + ')',
       Blockly.AutoHotkey.ORDER_FUNCTION_CALL];
 };
 
@@ -371,22 +405,25 @@ Blockly.AutoHotkey['lists_split'] = function(block) {
   var input = Blockly.AutoHotkey.valueToCode(block, 'INPUT',
       Blockly.AutoHotkey.ORDER_MEMBER);
   var delimiter = Blockly.AutoHotkey.valueToCode(block, 'DELIM',
-      Blockly.AutoHotkey.ORDER_NONE) || '\'\'';
+      Blockly.AutoHotkey.ORDER_NONE) || '""';
   var mode = block.getFieldValue('MODE');
   if (mode == 'SPLIT') {
-    if (!input) {
-      input = '\'\'';
-    }
-    var functionName = 'split';
+    var code = 'StrSplit(' + (input || '""') + ', ' + delimiter + ')';
   } else if (mode == 'JOIN') {
-    if (!input) {
-      input = '[]';
-    }
-    var functionName = 'join';
+    // Define the join helper function
+    var functionName = Blockly.AutoHotkey.provideFunction_(
+        'Join',
+        [Blockly.AutoHotkey.FUNCTION_NAME_PLACEHOLDER_ +
+              '(array, delimiter:="")',
+          '{',
+          '\tfor k, v in array',
+          '\t\tresult .= delimiter . v',
+          '\treturn SubStr(result, 1 + StrLen(delimiter))',
+          '}']);
+    var code = functionName + '(' + (input || '[]') + ', ' + delimiter + ')';
   } else {
     throw Error('Unknown mode: ' + mode);
   }
-  var code = input + '.' + functionName + '(' + delimiter + ')';
   return [code, Blockly.AutoHotkey.ORDER_FUNCTION_CALL];
 };
 
@@ -394,6 +431,16 @@ Blockly.AutoHotkey['lists_reverse'] = function(block) {
   // Block for reversing a list.
   var list = Blockly.AutoHotkey.valueToCode(block, 'LIST',
       Blockly.AutoHotkey.ORDER_FUNCTION_CALL) || '[]';
-  var code = list + '.slice().reverse()';
+  // Define the reverse helper function
+  var functionName = Blockly.AutoHotkey.provideFunction_(
+      'Reverse',
+      [Blockly.AutoHotkey.FUNCTION_NAME_PLACEHOLDER_ + '(array)',
+       '{',
+       '\tresult := []',
+       '\tfor k, v in array',
+       '\t\tresult.InsertAt(1, v)',
+       '\treturn result',
+       '}']);
+  var code = functionName + '(' + list + ')';
   return [code, Blockly.AutoHotkey.ORDER_FUNCTION_CALL];
 };

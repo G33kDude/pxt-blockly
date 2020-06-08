@@ -21,6 +21,7 @@
 /**
  * @fileoverview Generating AutoHotkey for variable blocks.
  * @author fraser@google.com (Neil Fraser)
+ * @author contact@philipt.net (Philip Taylor)
  */
 'use strict';
 
@@ -36,11 +37,14 @@ Blockly.AutoHotkey['variables_get'] = function(block) {
   return [code, Blockly.AutoHotkey.ORDER_ATOMIC];
 };
 
+Blockly.AutoHotkey['variables_get_reporter'] =
+    Blockly.AutoHotkey['variables_get'];
+
 Blockly.AutoHotkey['variables_set'] = function(block) {
   // Variable setter.
   var argument0 = Blockly.AutoHotkey.valueToCode(block, 'VALUE',
-      Blockly.AutoHotkey.ORDER_ASSIGNMENT) || '0';
+      Blockly.AutoHotkey.ORDER_ASSIGNMENT) || '""';
   var varName = Blockly.AutoHotkey.variableDB_.getName(
       block.getField('VAR').getText(), Blockly.Variables.NAME_TYPE);
-  return varName + ' = ' + argument0 + ';\n';
+  return varName + ' := ' + argument0 + '\n';
 };

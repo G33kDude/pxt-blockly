@@ -1,6 +1,7 @@
 /**
  * @license
  * Visual Blocks Language
+ * Modified 2020 Philip Taylor
  *
  * Copyright 2012 Google Inc.
  * https://developers.google.com/blockly/
@@ -21,6 +22,7 @@
 /**
  * @fileoverview Generating AutoHotkey for math blocks.
  * @author q.neutron@gmail.com (Quynh Neutron)
+ * @author contact@philipt.net (Philip Taylor)
  */
 'use strict';
 
@@ -44,7 +46,7 @@ Blockly.AutoHotkey['math_arithmetic'] = function(block) {
     'MINUS': [' - ', Blockly.AutoHotkey.ORDER_SUBTRACTION],
     'MULTIPLY': [' * ', Blockly.AutoHotkey.ORDER_MULTIPLICATION],
     'DIVIDE': [' / ', Blockly.AutoHotkey.ORDER_DIVISION],
-    'POWER': [null, Blockly.AutoHotkey.ORDER_COMMA]  // Handle power separately.
+    'POWER': [' ** ', Blockly.AutoHotkey.ORDER_EXPONENTIATION]
   };
   var tuple = OPERATORS[block.getFieldValue('OP')];
   var operator = tuple[0];
@@ -52,11 +54,6 @@ Blockly.AutoHotkey['math_arithmetic'] = function(block) {
   var argument0 = Blockly.AutoHotkey.valueToCode(block, 'A', order) || '0';
   var argument1 = Blockly.AutoHotkey.valueToCode(block, 'B', order) || '0';
   var code;
-  // Power in AutoHotkey requires a special case since it has no operator.
-  if (!operator) {
-    code = 'Math.pow(' + argument0 + ', ' + argument1 + ')';
-    return [code, Blockly.AutoHotkey.ORDER_FUNCTION_CALL];
-  }
   code = argument0 + operator + argument1;
   return [code, order];
 };
@@ -71,7 +68,7 @@ Blockly.AutoHotkey['math_single'] = function(block) {
     arg = Blockly.AutoHotkey.valueToCode(block, 'NUM',
         Blockly.AutoHotkey.ORDER_UNARY_NEGATION) || '0';
     if (arg[0] == '-') {
-      // --3 is not legal in JS.
+      // --3 is not legal in AHK.
       arg = ' ' + arg;
     }
     code = '-' + arg;
@@ -80,6 +77,9 @@ Blockly.AutoHotkey['math_single'] = function(block) {
   if (operator == 'SIN' || operator == 'COS' || operator == 'TAN') {
     arg = Blockly.AutoHotkey.valueToCode(block, 'NUM',
         Blockly.AutoHotkey.ORDER_DIVISION) || '0';
+  } else if (operator == 'POW10') {
+    arg = Blockly.AutoHotkey.valueToCode(block, 'NUM',
+        Blockly.AutoHotkey.ORDER_EXPONENTIATION) || '0';
   } else {
     arg = Blockly.AutoHotkey.valueToCode(block, 'NUM',
         Blockly.AutoHotkey.ORDER_NONE) || '0';
@@ -88,37 +88,37 @@ Blockly.AutoHotkey['math_single'] = function(block) {
   // wrapping the code.
   switch (operator) {
     case 'ABS':
-      code = 'Math.abs(' + arg + ')';
+      code = 'Abs(' + arg + ')';
       break;
     case 'ROOT':
-      code = 'Math.sqrt(' + arg + ')';
+      code = 'Sqrt(' + arg + ')';
       break;
     case 'LN':
-      code = 'Math.log(' + arg + ')';
+      code = 'Ln(' + arg + ')';
       break;
     case 'EXP':
-      code = 'Math.exp(' + arg + ')';
-      break;
-    case 'POW10':
-      code = 'Math.pow(10,' + arg + ')';
+      code = 'Exp(' + arg + ')';
       break;
     case 'ROUND':
-      code = 'Math.round(' + arg + ')';
+      code = 'Round(' + arg + ')';
       break;
     case 'ROUNDUP':
-      code = 'Math.ceil(' + arg + ')';
+      code = 'Ceil(' + arg + ')';
       break;
     case 'ROUNDDOWN':
-      code = 'Math.floor(' + arg + ')';
+      code = 'Floor(' + arg + ')';
       break;
     case 'SIN':
-      code = 'Math.sin(' + arg + ' / 180 * Math.PI)';
+      code = 'Sin(' + arg + ' / 180 * ' + Math.PI + ')';
       break;
     case 'COS':
-      code = 'Math.cos(' + arg + ' / 180 * Math.PI)';
+      code = 'Cos(' + arg + ' / 180 * ' + Math.PI + ')';
       break;
     case 'TAN':
-      code = 'Math.tan(' + arg + ' / 180 * Math.PI)';
+      code = 'Tan(' + arg + ' / 180 * ' + Math.PI + ')';
+      break;
+    case 'LOG10':
+      code = 'Log(' + arg + ')';
       break;
   }
   if (code) {
@@ -127,34 +127,38 @@ Blockly.AutoHotkey['math_single'] = function(block) {
   // Second, handle cases which generate values that may need parentheses
   // wrapping the code.
   switch (operator) {
-    case 'LOG10':
-      code = 'Math.log(' + arg + ') / Math.log(10)';
-      break;
     case 'ASIN':
-      code = 'Math.asin(' + arg + ') / Math.PI * 180';
+      code = 'ASin(' + arg + ') / ' + Math.PI + ' * 180';
       break;
     case 'ACOS':
-      code = 'Math.acos(' + arg + ') / Math.PI * 180';
+      code = 'ACos(' + arg + ') / ' + Math.PI + ' * 180';
       break;
     case 'ATAN':
-      code = 'Math.atan(' + arg + ') / Math.PI * 180';
+      code = 'ATan(' + arg + ') / ' + Math.PI + ' * 180';
       break;
-    default:
-      throw Error('Unknown math operator: ' + operator);
   }
-  return [code, Blockly.AutoHotkey.ORDER_DIVISION];
+  if (code) {
+    return [code, Blockly.AutoHotkey.ORDER_DIVISION];
+  }
+  // Third, handle cases which generate values that use other assorted operators
+  switch (operator) {
+    case 'POW10':
+      code = arg + ' ** 10';
+      return [code, Blockly.AutoHotkey.ORDER_EXPONENTIATION];
+  }
+  throw Error('Unknown math operator: ' + operator);
 };
 
 Blockly.AutoHotkey['math_constant'] = function(block) {
   // Constants: PI, E, the Golden Ratio, sqrt(2), 1/sqrt(2), INFINITY.
   var CONSTANTS = {
-    'PI': ['Math.PI', Blockly.AutoHotkey.ORDER_MEMBER],
-    'E': ['Math.E', Blockly.AutoHotkey.ORDER_MEMBER],
+    'PI': [Math.PI, Blockly.AutoHotkey.ORDER_ATOMIC],
+    'E': [Math.E, Blockly.AutoHotkey.ORDER_ATOMIC],
     'GOLDEN_RATIO':
-        ['(1 + Math.sqrt(5)) / 2', Blockly.AutoHotkey.ORDER_DIVISION],
-    'SQRT2': ['Math.SQRT2', Blockly.AutoHotkey.ORDER_MEMBER],
-    'SQRT1_2': ['Math.SQRT1_2', Blockly.AutoHotkey.ORDER_MEMBER],
-    'INFINITY': ['Infinity', Blockly.AutoHotkey.ORDER_ATOMIC]
+        ['(1 + Sqrt(5)) / 2', Blockly.AutoHotkey.ORDER_DIVISION],
+    'SQRT2': ['Sqrt(2)', Blockly.AutoHotkey.ORDER_FUNCTION_CALL],
+    'SQRT1_2': ['Sqrt(1 / 2)', Blockly.AutoHotkey.ORDER_FUNCTION_CALL],
+    'INFINITY': ['2**63-1', Blockly.AutoHotkey.ORDER_SUBTRACTION]
   };
   return CONSTANTS[block.getFieldValue('CONSTANT')];
 };
@@ -163,44 +167,44 @@ Blockly.AutoHotkey['math_number_property'] = function(block) {
   // Check if a number is even, odd, prime, whole, positive, or negative
   // or if it is divisible by certain number. Returns true or false.
   var number_to_check = Blockly.AutoHotkey.valueToCode(block, 'NUMBER_TO_CHECK',
-      Blockly.AutoHotkey.ORDER_MODULUS) || '0';
+      Blockly.AutoHotkey.ORDER_RELATIONAL) || '0';
   var dropdown_property = block.getFieldValue('PROPERTY');
   var code;
   if (dropdown_property == 'PRIME') {
     // Prime is a special case as it is not a one-liner test.
     var functionName = Blockly.AutoHotkey.provideFunction_(
-        'mathIsPrime',
-        ['function ' + Blockly.AutoHotkey.FUNCTION_NAME_PLACEHOLDER_ + '(n) {',
-         '  // https://en.wikipedia.org/wiki/Primality_test#Naive_methods',
-         '  if (n == 2 || n == 3) {',
-         '    return true;',
-         '  }',
-         '  // False if n is NaN, negative, is 1, or not whole.',
-         '  // And false if n is divisible by 2 or 3.',
-         '  if (isNaN(n) || n <= 1 || n % 1 != 0 || n % 2 == 0 ||' +
-            ' n % 3 == 0) {',
-         '    return false;',
-         '  }',
-         '  // Check all the numbers of form 6k +/- 1, up to sqrt(n).',
-         '  for (var x = 6; x <= Math.sqrt(n) + 1; x += 6) {',
-         '    if (n % (x - 1) == 0 || n % (x + 1) == 0) {',
-         '      return false;',
-         '    }',
-         '  }',
-         '  return true;',
-         '}']);
+        'IsPrime',
+        [Blockly.AutoHotkey.FUNCTION_NAME_PLACEHOLDER_ + '(n)',
+          '{',
+          '\t; https://en.wikipedia.org/wiki/Primality_test#Naive_methods',
+          '\tif (n == 2 || n == 3)',
+          '\t\treturn True',
+          '\t; False if n is NaN, negative, is 1, or not whole.',
+          '\t; And false if n is divisible by 2 or 3.',
+          '\tif (n <= 1 || Mod(n, 1) != 0 || Mod(n, 2) == 0 || Mod(n, 3) == 0)',
+          '\t\treturn False',
+          '\t; Check all the numbers of form 6k +/- 1, up to Sqrt(n).',
+          '\tx := 6, z := Sqrt(n) + 1',
+          '\twhile (x <= z)',
+          '\t{',
+          '\t\tif (Mod(n, x - 1) == 0 || Mod(n, x + 1) == 0)',
+          '\t\t\treturn False',
+          '\t\tx += 6',
+          '\t}',
+          '\treturn True',
+          '}']);
     code = functionName + '(' + number_to_check + ')';
     return [code, Blockly.AutoHotkey.ORDER_FUNCTION_CALL];
   }
   switch (dropdown_property) {
     case 'EVEN':
-      code = number_to_check + ' % 2 == 0';
+      code = 'Mod(' + number_to_check + ', 2) == 0';
       break;
     case 'ODD':
-      code = number_to_check + ' % 2 == 1';
+      code = 'Mod(' + number_to_check + ', 2) == 1';
       break;
     case 'WHOLE':
-      code = number_to_check + ' % 1 == 0';
+      code = 'Mod(' + number_to_check + ', 1) == 0';
       break;
     case 'POSITIVE':
       code = number_to_check + ' > 0';
@@ -210,21 +214,20 @@ Blockly.AutoHotkey['math_number_property'] = function(block) {
       break;
     case 'DIVISIBLE_BY':
       var divisor = Blockly.AutoHotkey.valueToCode(block, 'DIVISOR',
-          Blockly.AutoHotkey.ORDER_MODULUS) || '0';
-      code = number_to_check + ' % ' + divisor + ' == 0';
+          Blockly.AutoHotkey.ORDER_COMMA) || '0';
+      code = 'Mod(' + number_to_check + ', ' + divisor + ') == 0';
       break;
   }
-  return [code, Blockly.AutoHotkey.ORDER_EQUALITY];
+  return [code, Blockly.AutoHotkey.ORDER_RELATIONAL];
 };
 
 Blockly.AutoHotkey['math_change'] = function(block) {
   // Add to a variable in place.
   var argument0 = Blockly.AutoHotkey.valueToCode(block, 'DELTA',
-      Blockly.AutoHotkey.ORDER_ADDITION) || '0';
+      Blockly.AutoHotkey.ORDER_ASSIGNMENT) || '0';
   var varName = Blockly.AutoHotkey.variableDB_.getName(
       block.getField('VAR').getText(), Blockly.Variables.NAME_TYPE);
-  return varName + ' = (typeof ' + varName + ' == \'number\' ? ' + varName +
-      ' : 0) + ' + argument0 + ';\n';
+  return varName + ' += ' + argument0 + '\n';
 };
 
 // Rounding functions have a single operand.
@@ -236,121 +239,129 @@ Blockly.AutoHotkey['math_on_list'] = function(block) {
   // Math functions for lists.
   var func = block.getFieldValue('OP');
   var list, code;
+  // Define a Mean helper for those operations that need it
+  if (func === 'MEAN' || func === 'STD_DEV') {
+    var meanFunctionName = Blockly.AutoHotkey.provideFunction_(
+        'Mean',
+        [Blockly.AutoHotkey.FUNCTION_NAME_PLACEHOLDER_ + '(values*)',
+          '{',
+          '\tsum := 0, i := 0',
+          '\tfor k, v in values',
+          '\t\tif v is Number',
+          '\t\t\ti++, sum += v',
+          '\treturn sum / i',
+          '}']);
+  }
   switch (func) {
     case 'SUM':
+      // Sum(["", "", 1, 3]) == 4
+      var functionName = Blockly.AutoHotkey.provideFunction_(
+          'Sum',
+          [Blockly.AutoHotkey.FUNCTION_NAME_PLACEHOLDER_ + '(values*)',
+            '{',
+            '\tsum := 0',
+            '\tfor k, v in values',
+            '\t\tsum += v',
+            '\treturn sum',
+            '}']);
       list = Blockly.AutoHotkey.valueToCode(block, 'LIST',
           Blockly.AutoHotkey.ORDER_MEMBER) || '[]';
-      code = list + '.reduce(function(x, y) {return x + y;})';
+      code = functionName + '(' + list + '*)';
       break;
     case 'MIN':
       list = Blockly.AutoHotkey.valueToCode(block, 'LIST',
           Blockly.AutoHotkey.ORDER_COMMA) || '[]';
-      code = 'Math.min.apply(null, ' + list + ')';
+      code = 'Min(' + list + '*)';
       break;
     case 'MAX':
       list = Blockly.AutoHotkey.valueToCode(block, 'LIST',
           Blockly.AutoHotkey.ORDER_COMMA) || '[]';
-      code = 'Math.max.apply(null, ' + list + ')';
+      code = 'Max(' + list + '*)';
       break;
     case 'AVERAGE':
-      // mathMean([null,null,1,3]) == 2.0.
-      var functionName = Blockly.AutoHotkey.provideFunction_(
-          'mathMean',
-          ['function ' + Blockly.AutoHotkey.FUNCTION_NAME_PLACEHOLDER_ +
-              '(myList) {',
-            '  return myList.reduce(function(x, y) {return x + y;}) / ' +
-                  'myList.length;',
-            '}']);
+      // Mean(["", "", 1, 3]) == 2.0.
       list = Blockly.AutoHotkey.valueToCode(block, 'LIST',
           Blockly.AutoHotkey.ORDER_NONE) || '[]';
-      code = functionName + '(' + list + ')';
+      code = meanFunctionName + '(' + list + '*)';
       break;
     case 'MEDIAN':
-      // mathMedian([null,null,1,3]) == 2.0.
+      // Median(["", "", 1, 3]) == 2.0.
+      var sortFunctionName = Blockly.AutoHotkey.getSort();
       var functionName = Blockly.AutoHotkey.provideFunction_(
-          'mathMedian',
-          ['function ' + Blockly.AutoHotkey.FUNCTION_NAME_PLACEHOLDER_ +
-              '(myList) {',
-            '  var localList = myList.filter(function (x) ' +
-              '{return typeof x == \'number\';});',
-            '  if (!localList.length) return null;',
-            '  localList.sort(function(a, b) {return b - a;});',
-            '  if (localList.length % 2 == 0) {',
-            '    return (localList[localList.length / 2 - 1] + ' +
-              'localList[localList.length / 2]) / 2;',
-            '  } else {',
-            '    return localList[(localList.length - 1) / 2];',
-            '  }',
+          'Median',
+          [Blockly.AutoHotkey.FUNCTION_NAME_PLACEHOLDER_ + '(values*)',
+            '{',
+            '\ta := []',
+            '\tfor k, v in values',
+            '\t\tif v is Number',
+            '\t\t\ta.Push(v)',
+            '\tif (!a.Length())',
+            '\t\treturn ""',
+            '\t' + sortFunctionName + '(a, 1, a.Length())',
+            '\tif (Mod(a.Length(), 2))',
+            '\t\treturn a[(a.Length() + 1) // 2]',
+            '\treturn a[a.Length() // 2] / 2 + a[a.Length() // 2 + 1] / 2',
             '}']);
       list = Blockly.AutoHotkey.valueToCode(block, 'LIST',
           Blockly.AutoHotkey.ORDER_NONE) || '[]';
-      code = functionName + '(' + list + ')';
+      code = functionName + '(' + list + '*)';
       break;
     case 'MODE':
       // As a list of numbers can contain more than one mode,
       // the returned result is provided as an array.
-      // Mode of [3, 'x', 'x', 1, 1, 2, '3'] -> ['x', 1].
+      // Mode of [3, "x", "x", 1, 1, 2, "3"] -> ["x", 1].
       var functionName = Blockly.AutoHotkey.provideFunction_(
-          'mathModes',
-          ['function ' + Blockly.AutoHotkey.FUNCTION_NAME_PLACEHOLDER_ +
-              '(values) {',
-            '  var modes = [];',
-            '  var counts = [];',
-            '  var maxCount = 0;',
-            '  for (var i = 0; i < values.length; i++) {',
-            '    var value = values[i];',
-            '    var found = false;',
-            '    var thisCount;',
-            '    for (var j = 0; j < counts.length; j++) {',
-            '      if (counts[j][0] === value) {',
-            '        thisCount = ++counts[j][1];',
-            '        found = true;',
-            '        break;',
-            '      }',
-            '    }',
-            '    if (!found) {',
-            '      counts.push([value, 1]);',
-            '      thisCount = 1;',
-            '    }',
-            '    maxCount = Math.max(thisCount, maxCount);',
-            '  }',
-            '  for (var j = 0; j < counts.length; j++) {',
-            '    if (counts[j][1] == maxCount) {',
-            '        modes.push(counts[j][0]);',
-            '    }',
-            '  }',
-            '  return modes;',
+          'Modes',
+          [Blockly.AutoHotkey.FUNCTION_NAME_PLACEHOLDER_ + '(values*)',
+            '{',
+            '\tcounts := [], maxCount := 0, modes := []',
+            '\tfor i, value in values',
+            '\t{',
+            '\t\tfor j, count in counts',
+            '\t\t{',
+            '\t\t\tif (count[1] == value)',
+            '\t\t\t{',
+            '\t\t\t\tmaxCount := Max(++count[2], maxCount)',
+            '\t\t\t\tcontinue, 2',
+            '\t\t\t}',
+            '\t\t}',
+            '\t\tcounts.Push([value, 1])',
+            '\t\tmaxCount := Max(1, maxCount)',
+            '\t}',
+            '\tfor j, count in counts',
+            '\t\tif (count[2] == maxCount)',
+            '\t\t\tmodes.push(count[1])',
+            '\treturn modes',
             '}']);
       list = Blockly.AutoHotkey.valueToCode(block, 'LIST',
           Blockly.AutoHotkey.ORDER_NONE) || '[]';
-      code = functionName + '(' + list + ')';
+      code = functionName + '(' + list + '*)';
       break;
     case 'STD_DEV':
       var functionName = Blockly.AutoHotkey.provideFunction_(
           'mathStandardDeviation',
-          ['function ' + Blockly.AutoHotkey.FUNCTION_NAME_PLACEHOLDER_ +
-              '(numbers) {',
-            '  var n = numbers.length;',
-            '  if (!n) return null;',
-            '  var mean = numbers.reduce(function(x, y) {return x + y;}) / n;',
-            '  var variance = 0;',
-            '  for (var j = 0; j < n; j++) {',
-            '    variance += Math.pow(numbers[j] - mean, 2);',
-            '  }',
-            '  variance = variance / n;',
-            '  return Math.sqrt(variance);',
+          [Blockly.AutoHotkey.FUNCTION_NAME_PLACEHOLDER_ + '(numbers*)',
+            '{',
+            '\tif (!numbers.Length())',
+            '\t\treturn',
+            '\tmean := ' + meanFunctionName + '(numbers*)',
+            '\tvariance_sum := 0',
+            '\tfor number in numbers',
+            '\t\tvariance_sum += (number - mean) ** 2',
+            '\treturn Sqrt(variance_sum / numbers.Length())',
             '}']);
       list = Blockly.AutoHotkey.valueToCode(block, 'LIST',
           Blockly.AutoHotkey.ORDER_NONE) || '[]';
-      code = functionName + '(' + list + ')';
+      code = functionName + '(' + list + '*)';
       break;
     case 'RANDOM':
       var functionName = Blockly.AutoHotkey.provideFunction_(
-          'mathRandomList',
-          ['function ' + Blockly.AutoHotkey.FUNCTION_NAME_PLACEHOLDER_ +
-              '(list) {',
-            '  var x = Math.floor(Math.random() * list.length);',
-            '  return list[x];',
+          'RandomItem',
+          [Blockly.AutoHotkey.FUNCTION_NAME_PLACEHOLDER_ +
+              '(array, remove:=False)',
+            '{',
+            '\tRandom, i, array.MinIndex(), array.MaxIndex()',
+            '\treturn remove ? array.RemoveAt(i) : array[i]',
             '}']);
       list = Blockly.AutoHotkey.valueToCode(block, 'LIST',
           Blockly.AutoHotkey.ORDER_NONE) || '[]';
@@ -365,11 +376,11 @@ Blockly.AutoHotkey['math_on_list'] = function(block) {
 Blockly.AutoHotkey['math_modulo'] = function(block) {
   // Remainder computation.
   var argument0 = Blockly.AutoHotkey.valueToCode(block, 'DIVIDEND',
-      Blockly.AutoHotkey.ORDER_MODULUS) || '0';
+      Blockly.AutoHotkey.ORDER_COMMA) || '0';
   var argument1 = Blockly.AutoHotkey.valueToCode(block, 'DIVISOR',
-      Blockly.AutoHotkey.ORDER_MODULUS) || '0';
-  var code = argument0 + ' % ' + argument1;
-  return [code, Blockly.AutoHotkey.ORDER_MODULUS];
+      Blockly.AutoHotkey.ORDER_COMMA) || '0';
+  var code = 'Mod(' + argument0 + ', ' + argument1 + ')';
+  return [code, Blockly.AutoHotkey.ORDER_FUNCTION_CALL];
 };
 
 Blockly.AutoHotkey['math_constrain'] = function(block) {
@@ -379,9 +390,9 @@ Blockly.AutoHotkey['math_constrain'] = function(block) {
   var argument1 = Blockly.AutoHotkey.valueToCode(block, 'LOW',
       Blockly.AutoHotkey.ORDER_COMMA) || '0';
   var argument2 = Blockly.AutoHotkey.valueToCode(block, 'HIGH',
-      Blockly.AutoHotkey.ORDER_COMMA) || 'Infinity';
-  var code = 'Math.min(Math.max(' + argument0 + ', ' + argument1 + '), ' +
-      argument2 + ')';
+      Blockly.AutoHotkey.ORDER_COMMA) || '2**63-1';
+  var code = 'Min(Max(' + argument0 + ', ' + argument1 + '), ' + argument2 +
+      ')';
   return [code, Blockly.AutoHotkey.ORDER_FUNCTION_CALL];
 };
 
@@ -392,24 +403,24 @@ Blockly.AutoHotkey['math_random_int'] = function(block) {
   var argument1 = Blockly.AutoHotkey.valueToCode(block, 'TO',
       Blockly.AutoHotkey.ORDER_COMMA) || '0';
   var functionName = Blockly.AutoHotkey.provideFunction_(
-      'mathRandomInt',
-      ['function ' + Blockly.AutoHotkey.FUNCTION_NAME_PLACEHOLDER_ +
-          '(a, b) {',
-       '  if (a > b) {',
-       '    // Swap a and b to ensure a is smaller.',
-       '    var c = a;',
-       '    a = b;',
-       '    b = c;',
-       '  }',
-       '  return Math.floor(Math.random() * (b - a + 1) + a);',
-       '}']);
+      'RandomInt',
+      [Blockly.AutoHotkey.FUNCTION_NAME_PLACEHOLDER_ + '(min, max) {',
+        '\tRandom, rand, Ceil(min), Floor(max)',
+        '\treturn rand',
+        '}']);
   var code = functionName + '(' + argument0 + ', ' + argument1 + ')';
   return [code, Blockly.AutoHotkey.ORDER_FUNCTION_CALL];
 };
 
 Blockly.AutoHotkey['math_random_float'] = function(block) {
   // Random fraction between 0 and 1.
-  return ['Math.random()', Blockly.AutoHotkey.ORDER_FUNCTION_CALL];
+  var functionName = Blockly.AutoHotkey.provideFunction_(
+      'RandomFraction',
+      [Blockly.AutoHotkey.FUNCTION_NAME_PLACEHOLDER_ + '(min, max) {',
+        '\tRandom, rand, min, max',
+        '\treturn rand',
+        '}']);
+  return [functionName + '(0.0, 1.0)', Blockly.AutoHotkey.ORDER_FUNCTION_CALL];
 };
 
 Blockly.AutoHotkey['math_atan2'] = function(block) {
@@ -418,6 +429,12 @@ Blockly.AutoHotkey['math_atan2'] = function(block) {
       Blockly.AutoHotkey.ORDER_COMMA) || '0';
   var argument1 = Blockly.AutoHotkey.valueToCode(block, 'Y',
       Blockly.AutoHotkey.ORDER_COMMA) || '0';
-  return ['Math.atan2(' + argument1 + ', ' + argument0 + ') / Math.PI * 180',
-      Blockly.AutoHotkey.ORDER_DIVISION];
+  var functionName = Blockly.AutoHotkey.provideFunction_(
+      'ATan2',
+      [Blockly.AutoHotkey.FUNCTION_NAME_PLACEHOLDER_ + '(y, x) {',
+        '\treturn DllCall("msvcrt\\atan2", "Double", y, "Double", x, ' +
+            '"Cdecl Double") / ' + Math.PI + ' * 180',
+        '}']);
+  var code = functionName + '(' + argument1 + ', ' + argument0 + ')';
+  return [code, Blockly.AutoHotkey.ORDER_FUNCTION_CALL];
 };
