@@ -1453,7 +1453,8 @@ Blockly.Block.prototype.jsonInit = function(json) {
 
   // Set basic properties of block.
   // Makes styles backward compatible with old way of defining hat style.
-  if (json['style'] && json['style'].hat) {
+  var has_hat = json['style'] && json['style'].hat;
+  if (has_hat) {
     this.hat = json['style'].hat;
     // Must set to null so it doesn't error when checking for style and colour.
     json['style'] = null;
@@ -1465,6 +1466,11 @@ Blockly.Block.prototype.jsonInit = function(json) {
     this.jsonInitStyle_(json, warningPrefix);
   } else {
     this.jsonInitColour_(json, warningPrefix);
+  }
+
+  // Restore hat property to prevent removal of hat from future initializations
+  if (has_hat) {
+    json['style'] = {'hat': this.hat};
   }
 
   // Interpolate the message blocks.
