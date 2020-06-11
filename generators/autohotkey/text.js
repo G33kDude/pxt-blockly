@@ -266,7 +266,14 @@ Blockly.AutoHotkey['text_print'] = function(block) {
   // Print statement.
   var msg = Blockly.AutoHotkey.valueToCode(block, 'TEXT',
       Blockly.AutoHotkey.ORDER_NONE) || '""';
-  return 'MsgBox, % ' + msg + '\n';
+  var functionName = Blockly.AutoHotkey.provideFunction_(
+      'Print',
+      [Blockly.AutoHotkey.FUNCTION_NAME_PLACEHOLDER_ +
+          '(value)',
+        '{',
+        '\tMsgBox, % IsObject(value) ? "<object>" : value',
+        '}']);
+  return functionName + '(' + msg + ')\n';
 };
 
 Blockly.AutoHotkey['text_prompt_ext'] = function(block) {
