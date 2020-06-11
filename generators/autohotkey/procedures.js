@@ -31,7 +31,8 @@ goog.require('Blockly.AutoHotkey');
 Blockly.AutoHotkey['procedures_defreturn'] = function(block) {
   // Define a procedure with a return value.
   var funcName = Blockly.AutoHotkey.variableDB_.getName(
-      block.getFieldValue('NAME'), Blockly.PROCEDURE_CATEGORY_NAME);
+      block.getFieldValue('NAME') || block.getName(),
+      Blockly.PROCEDURE_CATEGORY_NAME);
   var xfix1 = '';
   if (Blockly.AutoHotkey.STATEMENT_PREFIX) {
     xfix1 += Blockly.AutoHotkey.injectId(Blockly.AutoHotkey.STATEMENT_PREFIX,
@@ -63,10 +64,11 @@ Blockly.AutoHotkey['procedures_defreturn'] = function(block) {
   }
   var args = [];
   for (var i = 0; i < block.arguments_.length; i++) {
-    args[i] = Blockly.AutoHotkey.variableDB_.getName(block.arguments_[i],
+    args[i] = Blockly.AutoHotkey.variableDB_.getName(
+        block.arguments_[i].name || block.arguments_[i],
         Blockly.VARIABLE_CATEGORY_NAME);
   }
-  var code = funcName + '(' + args.join(', ') + ')\n{\n' +
+  var code = funcName + '(' + args.join(', ') + ')\n{\n\tglobal\n' +
       xfix1 + loopTrap + branch + xfix2 + returnValue + '}';
   code = Blockly.AutoHotkey.scrub_(block, code);
   // Add % so as not to collide with helper functions in definitions list.
@@ -78,6 +80,27 @@ Blockly.AutoHotkey['procedures_defreturn'] = function(block) {
 // a procedure with a return value.
 Blockly.AutoHotkey['procedures_defnoreturn'] =
     Blockly.AutoHotkey['procedures_defreturn'];
+Blockly.AutoHotkey['function_definition'] =
+    Blockly.AutoHotkey['procedures_defreturn'];
+
+Blockly.AutoHotkey['function_return'] = function(block) {
+  var returnValue = Blockly.AutoHotkey.valueToCode(block, 'RETURN_VALUE',
+      Blockly.AutoHotkey.ORDER_NONE) || '';
+  return 'return ' + returnValue + '\n';
+}
+
+Blockly.AutoHotkey['argument_reporter_custom'] = function(block) {
+  var name = Blockly.AutoHotkey.variableDB_.getName(
+      block.getFieldValue('VALUE'),
+      Blockly.VARIABLE_CATEGORY_NAME);
+  return [name, Blockly.AutoHotkey.ORDER_ATOMIC];
+}
+Blockly.AutoHotkey['argument_reporter_boolean'] =
+    Blockly.AutoHotkey['argument_reporter_custom'];
+Blockly.AutoHotkey['argument_reporter_number'] =
+    Blockly.AutoHotkey['argument_reporter_custom'];
+Blockly.AutoHotkey['argument_reporter_string'] =
+    Blockly.AutoHotkey['argument_reporter_custom'];
 
 Blockly.AutoHotkey['procedures_callreturn'] = function(block) {
   // Call a procedure with a return value.
@@ -99,6 +122,32 @@ Blockly.AutoHotkey['procedures_callnoreturn'] = function(block) {
   var tuple = Blockly.AutoHotkey['procedures_callreturn'](block);
   return tuple[0] + '\n';
 };
+
+Blockly.AutoHotkey['function_call'] = function(block) {
+  // Call a function with a return value.
+  var funcName = Blockly.AutoHotkey.variableDB_.getName(
+      block.getName(), Blockly.PROCEDURE_CATEGORY_NAME);
+  var args = [];
+  for (var i = 0; i < block.arguments_.length; i++) {
+    args[i] = Blockly.AutoHotkey.valueToCode(block, block.arguments_[i].id,
+        Blockly.AutoHotkey.ORDER_COMMA) || '';
+  }
+  var code = funcName + '(' + args.join(', ') + ')\n';
+  return code;
+}
+
+Blockly.AutoHotkey['function_call_output'] = function(block) {
+  // Call a function with a return value.
+  var funcName = Blockly.AutoHotkey.variableDB_.getName(
+      block.getName(), Blockly.PROCEDURE_CATEGORY_NAME);
+  var args = [];
+  for (var i = 0; i < block.arguments_.length; i++) {
+    args[i] = Blockly.AutoHotkey.valueToCode(block, block.arguments_[i].id,
+        Blockly.AutoHotkey.ORDER_COMMA) || '';
+  }
+  var code = funcName + '(' + args.join(', ') + ')';
+  return [code, Blockly.AutoHotkey.ORDER_FUNCTION_CALL];
+}
 
 Blockly.AutoHotkey['procedures_ifreturn'] = function(block) {
   // Conditionally return value from a procedure.
