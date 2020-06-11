@@ -204,15 +204,23 @@ Blockly.AutoHotkey.init = function(workspace) {
 Blockly.AutoHotkey.finish = function(code) {
   // Convert the definitions dictionary into a list.
   var definitions = [];
+  var hotkey_definitions = [];
   for (var name in Blockly.AutoHotkey.definitions_) {
-    definitions.push(Blockly.AutoHotkey.definitions_[name]);
+    if (name[0] == ':') {
+      hotkey_definitions.push(Blockly.AutoHotkey.definitions_[name]);
+    } else {
+      definitions.push(Blockly.AutoHotkey.definitions_[name]);
+    }
   }
   // Clean up temporary data.
   delete Blockly.AutoHotkey.definitions_;
   delete Blockly.AutoHotkey.functionNames_;
   Blockly.AutoHotkey.variableDB_.reset();
-  return '#NoEnv\nSetBatchLines, -1\n\n' + code +
-    'return\n\n' + definitions.join('\n\n');
+  return code + 'return\n' +
+      (hotkey_definitions.length ? '\n\n; --- Hotkeys ---\n\n' +
+          hotkey_definitions.join('\n\n') + '\n' : '') +
+      (definitions.length ? '\n\n; --- Functions ---\n\n' +
+          definitions.join('\n\n') + '\n': '');
 };
 
 /**
