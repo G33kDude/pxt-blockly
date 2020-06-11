@@ -1426,3 +1426,164 @@ Blockly.Blocks['argument_reporter_custom'] = {
   mutationToDom: Blockly.PXTBlockly.FunctionUtils.argumentMutationToDom,
   domToMutation: Blockly.PXTBlockly.FunctionUtils.argumentDomToMutation
 };
+
+Blockly.Blocks['function_return'] = {
+  init: function() {
+    // initReturnStatement(this);
+    var b = this;
+    var returnDef = null;
+    var buttonAddName = '0_add_button';
+    var buttonRemName = '0_rem_button';
+
+    Blockly.Extensions.apply('inline-svgs', b, false);
+
+    var returnValueVisible = true;
+    updateShape();
+
+    var lastConnectedId = null;
+    b.domToMutation = function(saved) {
+      if (saved.hasAttribute('last_connected_id')) {
+        lastConnectedId = saved.getAttribute('last_connected_id');
+      }
+      returnValueVisible = hasReturnValue(saved);
+      updateShape();
+    }
+
+    b.mutationToDom = function() {
+      var mutation = document.createElement('mutation');
+      setReturnValue(mutation, !!b.getInput('RETURN_VALUE'));
+      if (lastConnectedId) {
+        mutation.setAttribute('last_connected_id', lastConnectedId);
+      }
+      return mutation
+    }
+
+    function updateShape() {
+      var returnValueInput = b.getInput('RETURN_VALUE');
+      if (returnValueVisible) {
+        if (!returnValueInput) {
+          while (b.getInput("")) b.removeInput("");
+          b.jsonInit({
+            'message0': 'return %1',
+            'args0': [
+              {
+                'type': 'input_value',
+                'name': 'RETURN_VALUE',
+                'check': null
+              }
+            ],
+            'previousStatement': null,
+            'colour': '%{BKY_PROCEDURES_HUE}'
+          })
+        }
+        if (b.getInput(buttonAddName)) {
+          b.removeInput(buttonAddName);
+        }
+        if (!b.getInput(buttonRemName)) {
+          addMinusButton();
+        }
+        if (lastConnectedId) {
+          var lastConnected = b.workspace.getBlockById(lastConnectedId);
+          if (lastConnected && lastConnected.outputConnection &&
+              !lastConnected.outputConnection.targetBlock()) {
+            b.getInput("RETURN_VALUE").connection.connect(lastConnected.outputConnection);
+          }
+          lastConnectedId = undefined;
+        }
+      } else {
+        if (returnValueInput) {
+          var target = returnValueInput.connection.targetBlock();
+          if (target) {
+            if (target.isShadow()) target.setShadow(false);
+            returnValueInput.connection.disconnect();
+            lastConnectedId = target.id;
+          }
+          b.removeInput('RETURN_VALUE');
+          b.jsonInit({
+            'message0': 'return',
+            'args0': [],
+            'previousStatement': null,
+            'colour': '%{BKY_PROCEDURES_HUE}'
+          });
+        }
+        if (b.getInput(buttonRemName)) {
+          b.removeInput(buttonRemName);
+        }
+        if (!b.getInput(buttonAddName)) {
+          addPlusButton();
+        }
+      }
+      b.setInputsInline(true);
+    }
+
+    function setReturnValue(mutation, hasReturnValue) {
+      mutation.setAttribute('no_return_value',
+        hasReturnValue ? 'false' : 'true');
+    }
+
+    function hasReturnValue(mutation) {
+      return mutation.getAttribute('no_return_value') !== 'true';
+    }
+
+    function addPlusButton() {
+      addButton(buttonAddName, b.ADD_IMAGE_DATAURI, ('Add return value'));
+    }
+
+    function addMinusButton() {
+      addButton(buttonRemName, b.REMOVE_IMAGE_DATAURI, ('Remove return value'));
+    }
+
+    function mutationString() {
+      return Blockly.Xml.domToText(b.mutationToDom());
+    }
+
+    function fireMutationChange(pre, post) {
+      if (pre !== post) {
+        Blockly.Events.fire(new Blockly.Events.BlockChange(b, 'mutation', null, pre, post));
+      }
+    }
+
+    function addButton(name, uri, alt) {
+      var dummy = b.appendDummyInput(name);
+      dummy.appendField(new Blockly.FieldImage(uri, 24, 24, alt, function() {
+        var oldMutation = mutationString();
+        returnValueVisible = !returnValueVisible;
+        var preUpdate = mutationString();
+        fireMutationChange(oldMutation, preUpdate);
+        updateShape();
+        var postUpdate = mutationString();
+        fireMutationChange(preUpdate, postUpdate);
+      }, false));
+    }
+  },
+  onchange: function (event) {
+    if (!this.workspace || this.workspace.isFlyout) {
+      // Block is deleted or is in a flyout.
+      return;
+    }
+
+    var bWasCreated =
+      event.type === Blockly.Events.BLOCK_CREATE && event.ids.indexOf(this.id) != -1;
+    var bWasDragged =
+      event.type === Blockly.Events.END_DRAG && event.allNestedIds.indexOf(this.id) != -1;
+
+    if (bWasCreated || bWasDragged) {
+      var rootBlock = this.getRootBlock();
+      var isTopBlock = rootBlock.type === 'function_return';
+
+      if (isTopBlock || rootBlock.previousConnection != null) {
+        // Statement is by itself on the workspace, or it is slotted into a
+        // stack of statements that is not attached to a function or event. Let
+        // it exist until it is connected to a function.
+        return;
+      }
+
+      if (rootBlock.type !== 'function_definition') {
+        // Not a function block, so disconnect
+        Blockly.Events.setGroup(event.group);
+        this.previousConnection.disconnect();
+        Blockly.Events.setGroup(false);
+      }
+    }
+  }
+};

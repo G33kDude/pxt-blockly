@@ -69,6 +69,14 @@ Blockly.Functions.flyoutCategory = function(workspace) {
   var xmlList = [];
 
   Blockly.Functions.addCreateButton_(workspace, xmlList);
+  Blockly.Functions.addReturnBlock_(workspace, xmlList);
+
+  var functionsWithReturn =
+      Blockly.Functions.getAllFunctionDefinitionBlocks(workspace)
+      .filter(def => def.getDescendants(false).some(
+        child => child.type === 'function_return' &&
+            child.getInputTargetBlock('RETURN_VALUE')))
+      .map(def => def.getField('function_name').getText());
 
   function populateFunctions(functionList, templateName) {
     for (var i = 0; i < functionList.length; i++) {
@@ -95,6 +103,11 @@ Blockly.Functions.flyoutCategory = function(workspace) {
         mutation.appendChild(arg);
       }
       xmlList.push(block);
+      if (functionsWithReturn.some(n => n === name)) {
+        var clone = block.cloneNode(true);
+        clone.setAttribute('type', 'function_call_output');
+        xmlList.push(clone);
+      }
     }
   }
 
@@ -105,7 +118,7 @@ Blockly.Functions.flyoutCategory = function(workspace) {
 
 /**
  * Create the "Make a Block..." button.
- * @param {!Blockly.Workspace} workspace The workspace contianing procedures.
+ * @param {!Blockly.Workspace} workspace The workspace containing procedures.
  * @param {!Array.<!Element>} xmlList Array of XML block elements to add to.
  * @private
  */
@@ -120,6 +133,27 @@ Blockly.Functions.addCreateButton_ = function(workspace, xmlList) {
   button.setAttribute('callbackKey', callbackKey);
   workspace.registerButtonCallback(callbackKey, callback);
   xmlList.push(button);
+};
+
+/**
+ * Create the return statement block
+ * @param {!Blockly.Workspace} workspace The workspace containing procedures.
+ * @param {!Array.<!Element>} xmlList Array of XML block elements to add to.
+ * @private
+ */
+Blockly.Functions.addReturnBlock_ = function(workspace, xmlList) {
+  console.log('Adding return block');
+  var block = document.createElement('block');
+  block.setAttribute('type', 'function_return');
+  var value = document.createElement('value');
+  value.setAttribute('name', 'RETURN_VALUE');
+  block.appendChild(value);
+  var shadow = document.createElement('shadow');
+  shadow.setAttribute('type', 'math_number');
+  var field = document.createElement('field');
+  field.setAttribute('name', 'NUM');
+  shadow.appendChild(field);
+  xmlList.push(block);
 };
 
 /**
